@@ -88,4 +88,9 @@ const (
 	// owner: @mvladev
 	// alpha: v1.15.0
 	SeedKubeScheduler featuregate.Feature = "SeedKubeScheduler"
+
+	// WireguardTunnel enables inverting the connection direction to be shoot->seed instead of seed->shoot using wireguard as a tunnel.
+	// owner @docktofuture, @scheererj
+	// alpha: v1.0.0
+	WireguardTunnel featuregate.Feature = "WireguardTunnel"
 )

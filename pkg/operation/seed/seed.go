@@ -45,6 +45,7 @@ import (
 	"github.com/gardener/gardener/pkg/operation/common"
 	"github.com/gardener/gardener/pkg/operation/seed/istio"
 	"github.com/gardener/gardener/pkg/operation/seed/scheduler"
+	"github.com/gardener/gardener/pkg/operation/seed/wireguard"
 	"github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/gardener/gardener/pkg/utils/imagevector"
@@ -695,6 +696,17 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 		}
 	} else {
 		if err := proxy.Destroy(ctx); err != nil {
+			return err
+		}
+	}
+
+	wireguard := wireguard.NewWireguard("wireguard", chartApplier, common.ChartPath)
+	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) {
+		if err := wireguard.Deploy(ctx); err != nil {
+			return err
+		}
+	} else {
+		if err := wireguard.Destroy(ctx); err != nil {
 			return err
 		}
 	}
