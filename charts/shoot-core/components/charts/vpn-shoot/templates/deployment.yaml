@@ -43,6 +43,22 @@ spec:
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
+      initContainers:
+      - name: vpn-shoot-wireguard-initializer
+        image: {{ index .Values.images "vpn-shoot-wireguard-initializer" }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - NET_ADMIN
+        command:
+        - wg-quick
+        - up
+        - wg0
+        volumeMounts:
+        - mountPath: /etc/wireguard
+          name: wireguard-config
       containers:
       - name: vpn-shoot
         image: {{ index .Values.images "vpn-shoot" }}
@@ -90,3 +106,7 @@ spec:
       - name: vpn-shoot-dh
         secret:
           secretName: vpn-shoot-dh
+      - name: wireguard-config
+        secret:
+          defaultMode: 0400
+          secretName: vpn-shoot-wireguard-secret

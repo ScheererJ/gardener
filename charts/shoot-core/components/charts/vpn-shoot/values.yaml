@@ -1,5 +1,7 @@
 images:
-  vpn-shoot: image-repository:image-tag
+#  vpn-shoot: image-repository:image-tag
+  vpn-shoot: eu.gcr.io/gardener-project/test/vpn-shoot:0.20.0-dev
+  vpn-shoot-wireguard-initializer: eu.gcr.io/gardener-project/test/wireguard:0.4
 serviceNetwork: 10.0.0.0/24
 podNetwork: 192.168.0.0/16
 #nodeNetwork: 172.16.0.0/20
@@ -10,3 +12,10 @@ vpnShootSecretData:
   ca: ZHVtbXktYjY0LWRhdGE=
   tlsCrt: ZHVtbXktYjY0LWRhdGE=
   tlsKey: ZHVtbXktYjY0LWRhdGE=
+wireguard:
+  address: 192.168.17.2/24
+  privateKey: <key>
+  peerPublicKey: <key>
+  peerPresharedKey: <key>
+  peerAllowedIPs: 192.168.17.1/32
+  peerEndpoint: <host:port>
