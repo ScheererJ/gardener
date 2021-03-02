@@ -173,3 +173,7 @@ mountHostCADirectories:
 
 #maxNonMutatingRequestsInflight: 400
 #maxMutatingRequestsInflight: 200
+
+wireguard:
+  vpnPort: "1194"
+  vpnEndpoint: 192.168.17.2

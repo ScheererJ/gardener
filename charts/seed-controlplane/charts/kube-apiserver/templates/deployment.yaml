@@ -395,7 +395,9 @@ spec:
         - name: MAIN_VPN_SEED
           value: "true"
         - name: OPENVPN_PORT
-          value: "4314"
+          value: {{ .Values.wireguard.vpnPort }}
+        - name: ENDPOINT
+          value: {{ .Values.wireguard.vpnEndpoint }}
         - name: APISERVER_AUTH_MODE
           value: client-cert
         - name: APISERVER_AUTH_MODE_CLIENT_CERT_CA
