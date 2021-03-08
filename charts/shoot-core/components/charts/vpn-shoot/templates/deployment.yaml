@@ -61,7 +61,7 @@ spec:
           name: wireguard-config
       containers:
       - name: vpn-shoot
-        image: {{ index .Values.images "vpn-shoot" }}
+        image: eu.gcr.io/gardener-project/test/vpn-shoot:0.20.0-dev #{{ index .Values.images "vpn-shoot" }}
         imagePullPolicy: IfNotPresent
         env:
         - name: SERVICE_NETWORK
