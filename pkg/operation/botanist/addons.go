@@ -471,8 +471,14 @@ func (b *Botanist) generateCoreAddonsChart(ctx context.Context) (*chartrenderer.
 		if err != nil {
 			return nil, err
 		}
+		hostAddress := ""
+		if wireguardService.Status.LoadBalancer.Ingress[0].Hostname != "" {
+			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].Hostname
+		} else {
+			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].IP
+		}
 		vpnShootConfig["wireguard"] = map[string]interface{}{
-			"peerEndpoint": fmt.Sprintf("%s:%d", wireguardService.Status.LoadBalancer.Ingress[0].Hostname, wireguardService.Spec.Ports[0].Port),
+			"peerEndpoint": fmt.Sprintf("%s:%d", hostAddress, wireguardService.Spec.Ports[0].Port),
 		}
 
 		vpnShoot, err := b.InjectShootShootImages(vpnShootConfig, common.VPNShootImageName)

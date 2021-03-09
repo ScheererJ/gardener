@@ -36,9 +36,11 @@ require (
 	github.com/spf13/viper v1.6.1
 	github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
+	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gopkg.in/yaml.v2 v2.3.0
 	istio.io/api v0.0.0-20201123152548-197f11e4ea09
@@ -70,6 +72,7 @@ replace (
 	github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.9.4
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.7.1 // keep this value in sync with k8s.io/client-go
+	golang.zx2c4.com/wireguard/wgctrl => github.com/mandelsoft/wgctrl-go v0.0.0-20210208121059-d9ab8e5d81ee
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0 // keep this value in sync with k8s.io/apiserver
 	k8s.io/api => k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.6

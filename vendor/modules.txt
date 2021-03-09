@@ -433,7 +433,7 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+# golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 ## explicit
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -486,11 +486,15 @@ golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+# golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7
+## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+# golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+golang.org/x/term
 # golang.org/x/text v0.3.3
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -536,6 +540,9 @@ golang.org/x/tools/internal/typesinternal
 # golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
+# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b => github.com/mandelsoft/wgctrl-go v0.0.0-20210208121059-d9ab8e5d81ee
+## explicit
+golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # gomodules.xyz/jsonpatch/v2 v2.1.0
 ## explicit
 gomodules.xyz/jsonpatch/v2
@@ -1334,6 +1341,7 @@ sigs.k8s.io/yaml
 # github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.9.4
 # github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 # github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.7.1
+# golang.zx2c4.com/wireguard/wgctrl => github.com/mandelsoft/wgctrl-go v0.0.0-20210208121059-d9ab8e5d81ee
 # google.golang.org/grpc => google.golang.org/grpc v1.27.0
 # k8s.io/api => k8s.io/api v0.19.6
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.6

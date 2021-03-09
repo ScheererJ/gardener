@@ -720,5 +720,15 @@ func (b *Botanist) generateWantedSecretConfigs(basicAuthAPIServer *secrets.Basic
 		})
 	}
 
+	//TODO: add feature gate ...
+	if true {
+		secretList = append(secretList, &secrets.WireguardSecretConfig{
+			Name:              common.WireguardSecretName,
+			LocalWireguardIP:  "192.168.17.2",
+			RemoteWireguardIP: "192.168.17.1",
+			PeerPublicKey:     "abc123",
+		})
+	}
+
 	return secretList, nil
 }
