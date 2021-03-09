@@ -35,6 +35,8 @@ const (
 	DataKeyWireguardPublicKey = "publicKey"
 	// DataKeyPeerPresharedKey is the key in a secret data holding the peer preshared key.
 	DataKeyPeerPresharedKey = "peerPresharedKey"
+	// DataKeyRemoteEndpoint is the key in a secret data holding the remote endpoint.
+	DataKeyRemoteEndpoint = "remoteEndpoint"
 )
 
 // WireguardSecretConfig contains the specification for a to-be-generated wireguard secret.
@@ -43,6 +45,7 @@ type WireguardSecretConfig struct {
 	LocalWireguardIP  string
 	RemoteWireguardIP string
 	PeerPublicKey     string
+	RemoteEndpoint    string
 }
 
 // Wireguard contains the keys for serializing the wireguard credentials
@@ -54,7 +57,7 @@ type Wireguard struct {
 	PrivateKey        string
 	PublicKey         string
 	PeerPublicKey     string
-	Endpoint          string
+	RemoteEndpoint    string
 }
 
 // GetName returns the name of the secret.
@@ -79,7 +82,7 @@ func (w *WireguardSecretConfig) GenerateInfoData() (infodata.InfoData, error) {
 		return nil, err
 	}
 
-	return NewWireguardInfoData(w.LocalWireguardIP, w.RemoteWireguardIP, shootPrivateKey.String(), shootPublicKey.String(), peerPresharedKey.String(), w.PeerPublicKey), nil
+	return NewWireguardInfoData(w.LocalWireguardIP, w.RemoteWireguardIP, shootPrivateKey.String(), shootPublicKey.String(), peerPresharedKey.String(), w.PeerPublicKey, w.RemoteEndpoint), nil
 }
 
 // GenerateFromInfoData implements ConfigInteface
@@ -105,8 +108,9 @@ func (w *WireguardSecretConfig) LoadFromSecretData(secretData map[string][]byte)
 	shootPrivateKey := string(secretData[DataKeyWireguardPrivateKey])
 	shootPublicKey := string(secretData[DataKeyWireguardPublicKey])
 	peerPublicKey := string(secretData[DataKeyPeerPublicKey])
+	remoteEndpoint := string(secretData[DataKeyRemoteEndpoint])
 
-	return NewWireguardInfoData(localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey), nil
+	return NewWireguardInfoData(localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey, remoteEndpoint), nil
 }
 
 // GenerateWireguard
@@ -134,6 +138,7 @@ func (w *WireguardSecretConfig) generateWithKeys(peerPresharedKey, shootPrivateK
 		PeerPresharedKey:  peerPresharedKey,
 		PrivateKey:        shootPrivateKey,
 		PublicKey:         shootPublicKey,
+		RemoteEndpoint:    w.RemoteEndpoint,
 	}
 
 	return wireguard, nil
@@ -148,6 +153,7 @@ func (w *Wireguard) SecretData() map[string][]byte {
 	data[DataKeyPeerPresharedKey] = []byte(w.PeerPresharedKey)
 	data[DataKeyWireguardPrivateKey] = []byte(w.PrivateKey)
 	data[DataKeyWireguardPublicKey] = []byte(w.PublicKey)
+	data[DataKeyRemoteEndpoint] = []byte(w.RemoteEndpoint)
 
 	return data
 }

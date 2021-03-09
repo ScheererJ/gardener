@@ -36,6 +36,7 @@ type WireguardJSONData struct {
 	PrivateKey        string `json:"privateKey"`
 	PublicKey         string `json:"publicKey"`
 	PeerPublicKey     string `json:"peerPublicKey"`
+	RemoteEndpoint    string `json:"remoteEndpoint"`
 }
 
 // UnmarshalWireguard unmarshals an WireguardJSONData into a WireguardInfoData struct.
@@ -49,7 +50,7 @@ func UnmarshalWireguard(bytes []byte) (infodata.InfoData, error) {
 		return nil, err
 	}
 
-	return NewWireguardInfoData(data.LocalWireguardIP, data.RemoteWireguardIP, data.PeerPresharedKey, data.PrivateKey, data.PublicKey, data.PeerPublicKey), nil
+	return NewWireguardInfoData(data.LocalWireguardIP, data.RemoteWireguardIP, data.PeerPresharedKey, data.PrivateKey, data.PublicKey, data.PeerPublicKey, data.RemoteEndpoint), nil
 }
 
 // WireguardInfoData holds the keys used for wireguard.
@@ -60,6 +61,7 @@ type WireguardInfoData struct {
 	ShootPrivateKey   string
 	ShootPublicKey    string
 	PeerPublicKey     string
+	RemoteEndpoint    string
 }
 
 // TypeVersion implements InfoData
@@ -69,10 +71,10 @@ func (w *WireguardInfoData) TypeVersion() infodata.TypeVersion {
 
 // Marshal implements InfoData
 func (w *WireguardInfoData) Marshal() ([]byte, error) {
-	return json.Marshal(&WireguardJSONData{w.LocalWireguardIP, w.RemoteWireguardIP, w.PeerPresharedKey, w.ShootPrivateKey, w.ShootPublicKey, w.PeerPublicKey})
+	return json.Marshal(&WireguardJSONData{w.LocalWireguardIP, w.RemoteWireguardIP, w.PeerPresharedKey, w.ShootPrivateKey, w.ShootPublicKey, w.PeerPublicKey, w.RemoteEndpoint})
 }
 
 // NewWireguardInfoData creates a new WireguardInfoData struct with the given keys.
-func NewWireguardInfoData(localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey string) infodata.InfoData {
-	return &WireguardInfoData{localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey}
+func NewWireguardInfoData(localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey, remoteEndpoint string) infodata.InfoData {
+	return &WireguardInfoData{localWireguardIP, remoteWireguardIP, peerPresharedKey, shootPrivateKey, shootPublicKey, peerPublicKey, remoteEndpoint}
 }

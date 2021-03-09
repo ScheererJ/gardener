@@ -726,6 +726,7 @@ func (b *Botanist) generateWantedSecretConfigs(basicAuthAPIServer *secrets.Basic
 			Name:              common.WireguardSecretName,
 			LocalWireguardIP:  "192.168.17.2",
 			RemoteWireguardIP: "192.168.17.1",
+			RemoteEndpoint:    "123.123.123.123",
 			PeerPublicKey:     "abc123",
 		})
 	}
