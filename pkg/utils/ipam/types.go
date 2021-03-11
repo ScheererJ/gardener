@@ -32,7 +32,7 @@ type AddressProvider interface {
 type IpamManager struct {
 	Providers    []AddressProvider
 	Reservations []AddressProvider
-	NetworkRange net.IPNet
+	NetworkRange *net.IPNet
 }
 
 // Manages a map of address reservations, which are removed after a certain period of time
