@@ -219,6 +219,9 @@ type SeedSettings struct {
 	// VerticalPodAutoscaler controls certain settings for the vertical pod autoscaler components deployed in the seed.
 	// +optional
 	VerticalPodAutoscaler *SeedSettingVerticalPodAutoscaler `json:"verticalPodAutoscaler,omitempty" protobuf:"bytes,5,opt,name=verticalPodAutoscaler"`
+	// SeedSettingWireguard controls the ip range for the wireguard devices
+	// +optional
+	Wireguard *SeedSettingWireguard `json:"wireguard,omitempty" protobuf:"bytes,6,opt,name=wireguard"`
 }
 
 // SeedSettingExcessCapacityReservation controls the excess capacity reservation for shoot control planes in the
@@ -259,6 +262,12 @@ type SeedSettingVerticalPodAutoscaler struct {
 	// is enabled by default because Gardener heavily relies on a VPA being deployed. You should only disable this if
 	// your seed cluster already has another, manually/custom managed VPA deployment.
 	Enabled bool `json:"enabled" protobuf:"bytes,1,opt,name=enabled"`
+}
+
+// SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
+type SeedSettingWireguard struct {
+	Enabled       bool   `json:"enabled" protobuf:"bytes,1,opt,name=enabled"`
+	WireguardCIDR string `json:"wireguardCIDR" protobuf:"bytes,2,opt,name=wireguardCIDR"`
 }
 
 // SeedTaint describes a taint on a seed.

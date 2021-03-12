@@ -701,7 +701,7 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 	}
 
 	wireguard := wireguard.NewWireguard("wireguard", chartApplier, common.ChartPath)
-	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) {
+	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) && seed.Info.Spec.Settings.Wireguard != nil && seed.Info.Spec.Settings.Wireguard.Enabled {
 		if err := wireguard.Deploy(ctx); err != nil {
 			return err
 		}
