@@ -43,27 +43,9 @@ spec:
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
-{{- if .Values.wireguard.enabled }}
-      initContainers:
-      - name: vpn-shoot-wireguard-initializer
-        image: {{ index .Values.images "vpn-shoot-wireguard-initializer" }}
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-            - NET_ADMIN
-        command:
-        - wg-quick
-        - up
-        - wg0
-        volumeMounts:
-        - mountPath: /etc/wireguard
-          name: wireguard-config
-{{- end}}
       containers:
       - name: vpn-shoot
-        image: eu.gcr.io/gardener-project/test/vpn-shoot:0.20.0-dev #{{ index .Values.images "vpn-shoot" }}
+        image: eu.gcr.io/gardener-project/test/vpn-shoot-dev:0.6 #{{ index .Values.images "vpn-shoot" }}
         imagePullPolicy: IfNotPresent
         env:
         - name: SERVICE_NETWORK
@@ -98,6 +80,10 @@ spec:
           name: vpn-shoot-tlsauth
         - mountPath: /srv/secrets/dh
           name: vpn-shoot-dh
+{{- if .Values.wireguard.enabled }}
+        - mountPath: /etc/wireguard
+          name: wireguard-config
+{{- end }}
       volumes:
       - name: vpn-shoot
         secret:
