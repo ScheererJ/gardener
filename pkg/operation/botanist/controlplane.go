@@ -569,6 +569,9 @@ func (b *Botanist) DeployKubeAPIServer(ctx context.Context) error {
 				"name":       konnectivity.ServerName,
 				"serverPort": konnectivity.ServerHTTPSPort,
 			},
+			"wireguard": map[string]interface{}{
+				"enabled": b.Shoot.WireguardTunnelEnabled,
+			},
 			"hvpa": map[string]interface{}{
 				"enabled": hvpaEnabled,
 			},

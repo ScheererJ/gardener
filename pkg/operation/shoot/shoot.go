@@ -22,8 +22,10 @@ import (
 	"strings"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	v1alpha1constants "github.com/gardener/gardener/pkg/apis/core/v1alpha1/constants"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	gardencorelisters "github.com/gardener/gardener/pkg/client/core/listers/core/v1beta1"
@@ -225,6 +227,11 @@ func (b *Builder) Build(ctx context.Context, c client.Client) (*Shoot, error) {
 	shoot.KonnectivityTunnelEnabled = gardenletfeatures.FeatureGate.Enabled(features.KonnectivityTunnel) && kubernetesVersionGeq118
 	if konnectivityTunnelEnabled, err := strconv.ParseBool(shoot.Info.Annotations[v1beta1constants.AnnotationShootKonnectivityTunnel]); err == nil && kubernetesVersionGeq118 {
 		shoot.KonnectivityTunnelEnabled = konnectivityTunnelEnabled
+	}
+
+	shoot.WireguardTunnelEnabled = gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel)
+	if wireguardTunnelEnabled, err := strconv.ParseBool(shoot.Info.Annotations[v1alpha1constants.AnnotationShootWireguardTunnel]); err == nil {
+		shoot.WireguardTunnelEnabled = wireguardTunnelEnabled
 	}
 
 	needsClusterAutoscaler, err := gardencorev1beta1helper.ShootWantsClusterAutoscaler(shootObject)

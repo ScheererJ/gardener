@@ -43,6 +43,7 @@ spec:
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
+{{- if .Values.wireguard.enabled }}
       initContainers:
       - name: vpn-shoot-wireguard-initializer
         image: {{ index .Values.images "vpn-shoot-wireguard-initializer" }}
@@ -59,6 +60,7 @@ spec:
         volumeMounts:
         - mountPath: /etc/wireguard
           name: wireguard-config
+{{- end}}
       containers:
       - name: vpn-shoot
         image: eu.gcr.io/gardener-project/test/vpn-shoot:0.20.0-dev #{{ index .Values.images "vpn-shoot" }}
@@ -106,7 +108,9 @@ spec:
       - name: vpn-shoot-dh
         secret:
           secretName: vpn-shoot-dh
+{{- if .Values.wireguard.enabled }}
       - name: wireguard-config
         secret:
           defaultMode: 0400
           secretName: vpn-shoot-wireguard-secret
+{{- end }}

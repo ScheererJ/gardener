@@ -466,19 +466,22 @@ func (b *Botanist) generateCoreAddonsChart(ctx context.Context) (*chartrenderer.
 			vpnShootConfig["nodeNetwork"] = *nodeNetwork
 		}
 
-		wireguardService := &corev1.Service{}
-		err = b.K8sSeedClient.Client().Get(ctx, client.ObjectKey{Namespace: "wireguard", Name: "wireguard-vpn"}, wireguardService)
-		if err != nil {
-			return nil, err
-		}
-		hostAddress := ""
-		if wireguardService.Status.LoadBalancer.Ingress[0].Hostname != "" {
-			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].Hostname
-		} else {
-			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].IP
-		}
-		vpnShootConfig["wireguard"] = map[string]interface{}{
-			"peerEndpoint": fmt.Sprintf("%s:%d", hostAddress, wireguardService.Spec.Ports[0].Port),
+		if b.Shoot.WireguardTunnelEnabled {
+			wireguardService := &corev1.Service{}
+			err = b.K8sSeedClient.Client().Get(ctx, client.ObjectKey{Namespace: "wireguard", Name: "wireguard-vpn"}, wireguardService)
+			if err != nil {
+				return nil, err
+			}
+			hostAddress := ""
+			if wireguardService.Status.LoadBalancer.Ingress[0].Hostname != "" {
+				hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].Hostname
+			} else {
+				hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].IP
+			}
+			vpnShootConfig["wireguard"] = map[string]interface{}{
+				"peerEndpoint": fmt.Sprintf("%s:%d", hostAddress, wireguardService.Spec.Ports[0].Port),
+				"enabled":      fmt.Sprintf("%t", b.Shoot.WireguardTunnelEnabled),
+			}
 		}
 
 		vpnShoot, err := b.InjectShootShootImages(vpnShootConfig, common.VPNShootImageName)
