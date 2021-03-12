@@ -7390,6 +7390,45 @@ your seed cluster already has another, manually/custom managed VPA deployment.</
 </tr>
 </tbody>
 </table>
+<h3 id="core.gardener.cloud/v1beta1.SeedSettingWireguard">SeedSettingWireguard
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#core.gardener.cloud/v1beta1.SeedSettings">SeedSettings</a>)
+</p>
+<p>
+<p>SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>wireguardCIDR</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="core.gardener.cloud/v1beta1.SeedSettings">SeedSettings
 </h3>
 <p>
@@ -7476,6 +7515,20 @@ SeedSettingVerticalPodAutoscaler
 <td>
 <em>(Optional)</em>
 <p>VerticalPodAutoscaler controls certain settings for the vertical pod autoscaler components deployed in the seed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wireguard</code></br>
+<em>
+<a href="#core.gardener.cloud/v1beta1.SeedSettingWireguard">
+SeedSettingWireguard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SeedSettingWireguard controls the ip range for the wireguard devices</p>
 </td>
 </tr>
 </tbody>

@@ -1760,6 +1760,13 @@ message SeedSettingVerticalPodAutoscaler {
   optional bool enabled = 1;
 }
 
+// SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
+message SeedSettingWireguard {
+  optional bool enabled = 1;
+
+  optional string wireguardCIDR = 2;
+}
+
 // SeedSettings contains certain settings for this seed cluster.
 message SeedSettings {
   // ExcessCapacityReservation controls the excess capacity reservation for shoot control planes in the seed.
@@ -1782,6 +1789,10 @@ message SeedSettings {
   // VerticalPodAutoscaler controls certain settings for the vertical pod autoscaler components deployed in the seed.
   // +optional
   optional SeedSettingVerticalPodAutoscaler verticalPodAutoscaler = 5;
+
+  // SeedSettingWireguard controls the ip range for the wireguard devices
+  // +optional
+  optional SeedSettingWireguard wireguard = 6;
 }
 
 // SeedSpec is the specification of a Seed.

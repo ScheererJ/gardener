@@ -204,6 +204,8 @@ type SeedSettings struct {
 	LoadBalancerServices *SeedSettingLoadBalancerServices
 	// VerticalPodAutoscaler controls certain settings for the vertical pod autoscaler components deployed in the seed.
 	VerticalPodAutoscaler *SeedSettingVerticalPodAutoscaler
+	// SeedSettingWireguard controls the ip range for the wireguard devices
+	Wireguard *SeedSettingWireguard
 }
 
 // SeedSettingExcessCapacityReservation controls the excess capacity reservation for shoot control planes in the
@@ -243,6 +245,12 @@ type SeedSettingVerticalPodAutoscaler struct {
 	// is enabled by default because Gardener heavily relies on a VPA being deployed. You should only disable this if
 	// your seed cluster already has another, manually/custom managed VPA deployment.
 	Enabled bool
+}
+
+// SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
+type SeedSettingWireguard struct {
+	Enabled       bool
+	WireguardCIDR string
 }
 
 // SeedTaint describes a taint on a seed.

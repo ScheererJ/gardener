@@ -145,6 +145,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingScheduling":                 schema_pkg_apis_core_v1alpha1_SeedSettingScheduling(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingShootDNS":                   schema_pkg_apis_core_v1alpha1_SeedSettingShootDNS(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingVerticalPodAutoscaler":      schema_pkg_apis_core_v1alpha1_SeedSettingVerticalPodAutoscaler(ref),
+		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingWireguard":                  schema_pkg_apis_core_v1alpha1_SeedSettingWireguard(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettings":                          schema_pkg_apis_core_v1alpha1_SeedSettings(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSpec":                              schema_pkg_apis_core_v1alpha1_SeedSpec(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedStatus":                            schema_pkg_apis_core_v1alpha1_SeedStatus(ref),
@@ -279,6 +280,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingScheduling":                  schema_pkg_apis_core_v1beta1_SeedSettingScheduling(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingShootDNS":                    schema_pkg_apis_core_v1beta1_SeedSettingShootDNS(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingVerticalPodAutoscaler":       schema_pkg_apis_core_v1beta1_SeedSettingVerticalPodAutoscaler(ref),
+		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingWireguard":                   schema_pkg_apis_core_v1beta1_SeedSettingWireguard(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettings":                           schema_pkg_apis_core_v1beta1_SeedSettings(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSpec":                               schema_pkg_apis_core_v1beta1_SeedSpec(ref),
 		"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedStatus":                             schema_pkg_apis_core_v1beta1_SeedStatus(ref),
@@ -5473,6 +5475,32 @@ func schema_pkg_apis_core_v1alpha1_SeedSettingVerticalPodAutoscaler(ref common.R
 	}
 }
 
+func schema_pkg_apis_core_v1alpha1_SeedSettingWireguard(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"wireguardCIDR": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"enabled", "wireguardCIDR"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1alpha1_SeedSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5510,11 +5538,17 @@ func schema_pkg_apis_core_v1alpha1_SeedSettings(ref common.ReferenceCallback) co
 							Ref:         ref("github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingVerticalPodAutoscaler"),
 						},
 					},
+					"wireguard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SeedSettingWireguard controls the ip range for the wireguard devices",
+							Ref:         ref("github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingWireguard"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingExcessCapacityReservation", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingLoadBalancerServices", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingScheduling", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingShootDNS", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingVerticalPodAutoscaler"},
+			"github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingExcessCapacityReservation", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingLoadBalancerServices", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingScheduling", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingShootDNS", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingVerticalPodAutoscaler", "github.com/gardener/gardener/pkg/apis/core/v1alpha1.SeedSettingWireguard"},
 	}
 }
 
@@ -11551,6 +11585,32 @@ func schema_pkg_apis_core_v1beta1_SeedSettingVerticalPodAutoscaler(ref common.Re
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_SeedSettingWireguard(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"wireguardCIDR": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"enabled", "wireguardCIDR"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_SeedSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11588,11 +11648,17 @@ func schema_pkg_apis_core_v1beta1_SeedSettings(ref common.ReferenceCallback) com
 							Ref:         ref("github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingVerticalPodAutoscaler"),
 						},
 					},
+					"wireguard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SeedSettingWireguard controls the ip range for the wireguard devices",
+							Ref:         ref("github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingWireguard"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingExcessCapacityReservation", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingLoadBalancerServices", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingScheduling", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingShootDNS", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingVerticalPodAutoscaler"},
+			"github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingExcessCapacityReservation", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingLoadBalancerServices", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingScheduling", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingShootDNS", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingVerticalPodAutoscaler", "github.com/gardener/gardener/pkg/apis/core/v1beta1.SeedSettingWireguard"},
 	}
 }
 

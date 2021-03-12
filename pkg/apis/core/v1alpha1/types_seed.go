@@ -266,8 +266,8 @@ type SeedSettingVerticalPodAutoscaler struct {
 
 // SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
 type SeedSettingWireguard struct {
-	Enabled       bool   `json:"enabled" protobuf:"bytes,1,opt,name=enabled"`
-	WireguardCIDR string `json:"wireguardCIDR" protobuf:"bytes,2,opt,name=wireguardCIDR"`
+	Enabled       bool   `json:"enabled" protobuf:"bytes,1,name=enabled"`
+	WireguardCIDR string `json:"wireguardCIDR" protobuf:"bytes,2,name=wireguardCIDR"`
 }
 
 // SeedTaint describes a taint on a seed.
