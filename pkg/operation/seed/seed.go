@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gardener/gardener-resource-manager/pkg/apis/resources/v1alpha1"
@@ -78,6 +79,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	wg "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+)
+
+const wireguardDefaultReservationTime = 1 * time.Minute
+
+var (
+	wireguardMutex        sync.Mutex
+	wireguardIpamManagers = make(map[string]*ipam.LockedIpamManager)
 )
 
 // NewBuilder returns a new Builder.
@@ -706,7 +714,7 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 	wireguard := wireguard.NewWireguard("wireguard", chartApplier, common.ChartPath)
 	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) && seed.Info.Spec.Settings.Wireguard != nil && seed.Info.Spec.Settings.Wireguard.Enabled {
 		if seed.Info.Status.WireguardIP == nil {
-			ipamManager, err := ipam.GetOrCreate(seed, k8sGardenClient)
+			ipamManager, err := GetOrCreate(seed, k8sGardenClient)
 			if err != nil {
 				return err
 			}
@@ -1321,4 +1329,27 @@ func deleteIngressController(ctx context.Context, c client.Client) error {
 		&rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: "nginx-ingress", Namespace: v1beta1constants.GardenNamespace}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-ingress-k8s-backend", Namespace: v1beta1constants.GardenNamespace}},
 	)
+}
+
+func GetOrCreate(seed *Seed, k8sGardenClient kubernetes.Interface) (*ipam.LockedIpamManager, error) {
+	wireguardMutex.Lock()
+	defer wireguardMutex.Unlock()
+	var err error
+	result := wireguardIpamManagers[seed.Info.Name]
+	if result == nil {
+		seedProvider := &ipam.WireguardSeedAddressProvider{
+			Seed: seed.Info,
+		}
+		shootProvider := &ipam.WireguardShootAddressProvider{
+			K8sGardenClient: k8sGardenClient,
+			SeedName:        &seed.Info.Name,
+		}
+		cidr := seed.Info.Spec.Settings.Wireguard.CIDR
+		result, err = ipam.NewLockedIpamManager([]ipam.AddressProvider{seedProvider, shootProvider}, cidr, wireguardDefaultReservationTime)
+		if err != nil {
+			return nil, err
+		}
+		wireguardIpamManagers[seed.Info.Name] = result
+	}
+	return result, nil
 }

@@ -30,7 +30,7 @@ import (
 	"github.com/gardener/gardener/pkg/operation/botanist/extensions/operatingsystemconfig/downloader"
 	"github.com/gardener/gardener/pkg/operation/botanist/systemcomponents/metricsserver"
 	"github.com/gardener/gardener/pkg/operation/common"
-	"github.com/gardener/gardener/pkg/utils/ipam"
+	"github.com/gardener/gardener/pkg/operation/seed"
 	"github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -724,9 +724,8 @@ func (b *Botanist) generateWantedSecretConfigs(basicAuthAPIServer *secrets.Basic
 		})
 	}
 
-	//TODO: add feature gate ...
 	if b.Shoot.WireguardTunnelEnabled {
-		ipamManager, err := ipam.GetOrCreate(b.Seed, b.K8sGardenClient)
+		ipamManager, err := seed.GetOrCreate(b.Seed, b.K8sGardenClient)
 		if err != nil {
 			return nil, err
 		}

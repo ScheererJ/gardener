@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
-	"github.com/gardener/gardener/pkg/operation/seed"
 )
 
 // Provides a list of IP addresses as an array
@@ -52,7 +52,7 @@ type LockedIpamManager struct {
 }
 
 type WireguardSeedAddressProvider struct {
-	Seed *seed.Seed
+	Seed *gardencorev1beta1.Seed
 }
 
 type WireguardShootAddressProvider struct {

@@ -26,20 +26,11 @@ import (
 	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/operation/common"
-	"github.com/gardener/gardener/pkg/operation/seed"
-)
-
-const defaultReservationTime = 1 * time.Minute
-
-var (
-	mutex        sync.Mutex
-	ipamManagers = make(map[string]*LockedIpamManager)
 )
 
 // Acquire the next free IP address in the configured CIDR range respecting already reserved, but not used IPs
- func (ipam *IpamManager) AcquireIP() (net.IP, error) {
+func (ipam *IpamManager) AcquireIP() (net.IP, error) {
 	addressesInUse := make(map[string]bool)
 	// Get all IPs currently in use, duplicates not allowed
 	for _, p := range ipam.Providers {
@@ -63,16 +54,16 @@ var (
 		return ip, nil
 	}
 	return nil, fmt.Errorf("No IP available in range %s", ipam.NetworkRange.String())
- }
- 
+}
+
 func DuplicateIP(ip net.IP) net.IP {
 	result := make(net.IP, len(ip))
 	copy(result, ip)
 	return result
 }
 
- // Add the IP addresses of the given address provider to the address map, report duplicates in case they are not allowed
- func AddAddresses(addressMap *map[string]bool, provider AddressProvider, cidr *net.IPNet, reportDuplicates bool) error {
+// Add the IP addresses of the given address provider to the address map, report duplicates in case they are not allowed
+func AddAddresses(addressMap *map[string]bool, provider AddressProvider, cidr *net.IPNet, reportDuplicates bool) error {
 	addresses, err := provider.Addresses()
 	if err != nil {
 		return err
@@ -87,10 +78,10 @@ func DuplicateIP(ip net.IP) net.IP {
 		addressesInUse[addr] = true
 	}
 	return nil
- }
- 
- // Return the next IP address, returning nil on overflow
- func NextIP(ip net.IP) net.IP {
+}
+
+// Return the next IP address, returning nil on overflow
+func NextIP(ip net.IP) net.IP {
 	length := len(ip)
 	result := ip
 	for i := length - 1; i >= 0; i-- {
@@ -105,26 +96,26 @@ func DuplicateIP(ip net.IP) net.IP {
 	}
 	// Overflow
 	return nil
- }
- 
- func NewIpamManager(addressProviders []AddressProvider, reservationProviders []AddressProvider, cidr *net.IPNet) *IpamManager {
+}
+
+func NewIpamManager(addressProviders []AddressProvider, reservationProviders []AddressProvider, cidr *net.IPNet) *IpamManager {
 	return &IpamManager{
 		Providers:    addressProviders,
 		Reservations: reservationProviders,
 		NetworkRange: cidr,
 	}
- }
- 
- func (rm *ReservationManager) Addresses() ([]string, error) {
+}
+
+func (rm *ReservationManager) Addresses() ([]string, error) {
 	result := []string{}
 	for k := range rm.ReservedAddresses {
 		result = append(result, k)
 	}
 	return result, nil
- }
- 
- // Acquires the next free IP address in the CIDR range ensuring mutual exclusion and temporary reservations
- func (m *LockedIpamManager) AcquireIP() (string, error) {
+}
+
+// Acquires the next free IP address in the CIDR range ensuring mutual exclusion and temporary reservations
+func (m *LockedIpamManager) AcquireIP() (string, error) {
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
 	ip, err := m.Ipam.AcquireIP()
@@ -139,9 +130,9 @@ func DuplicateIP(ip net.IP) net.IP {
 		delete(m.Reservations.ReservedAddresses, ipString)
 	})
 	return ipString, nil
- }
- 
- func NewLockedIpamManager(addressProviders []AddressProvider, cidr string, reservationDuration time.Duration) (*LockedIpamManager, error) {
+}
+
+func NewLockedIpamManager(addressProviders []AddressProvider, cidr string, reservationDuration time.Duration) (*LockedIpamManager, error) {
 	rm := &ReservationManager{
 		ReservationDuration: reservationDuration,
 		ReservedAddresses:   make(map[string]bool),
@@ -155,35 +146,11 @@ func DuplicateIP(ip net.IP) net.IP {
 		Mutex:        sync.Mutex{},
 		Reservations: rm,
 	}, nil
- }
- 
-func GetOrCreate(seed *seed.Seed, k8sGardenClient kubernetes.Interface) (*LockedIpamManager, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	var err error
-	result := ipamManagers[seed.Info.Name]
-	if result == nil {
-		seedProvider := &WireguardSeedAddressProvider{
-			Seed: seed,
-		}
-		shootProvider := &WireguardShootAddressProvider{
-			K8sGardenClient: k8sGardenClient,
-			SeedName: &seed.Info.Name,
-		}
-		cidr := seed.Info.Spec.Settings.Wireguard.CIDR
-		result, err = NewLockedIpamManager([]AddressProvider{seedProvider, shootProvider}, cidr, defaultReservationTime)
-		if err != nil {
-			return nil, err
-		}
-		ipamManagers[seed.Info.Name] = result
-	}
-	return result, nil
 }
 
-
 func (p *WireguardSeedAddressProvider) Addresses() ([]string, error) {
-	if p.Seed.Info.Status.WireguardIP != nil {
-		return []string{*p.Seed.Info.Status.WireguardIP}, nil
+	if p.Seed.Status.WireguardIP != nil {
+		return []string{*p.Seed.Status.WireguardIP}, nil
 	}
 	return []string{}, nil
 }
