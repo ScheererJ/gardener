@@ -49,6 +49,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/gardener/gardener/pkg/utils/imagevector"
+	"github.com/gardener/gardener/pkg/utils/ipam"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	secretsutils "github.com/gardener/gardener/pkg/utils/secrets"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
@@ -75,6 +76,8 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	wg "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // NewBuilder returns a new Builder.
@@ -702,6 +705,24 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 
 	wireguard := wireguard.NewWireguard("wireguard", chartApplier, common.ChartPath)
 	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) && seed.Info.Spec.Settings.Wireguard != nil && seed.Info.Spec.Settings.Wireguard.Enabled {
+		if seed.Info.Status.WireguardIP == nil {
+			ipamManager, err := ipam.GetOrCreate(seed, k8sGardenClient)
+			if err != nil {
+				return err
+			}
+			ip, err := ipamManager.AcquireIP()
+			seed.Info.Status.WireguardIP = &ip
+			if err != nil {
+				return err
+			}
+			// TODO: use private key
+			seedPrivateKey, err := wg.GeneratePrivateKey()
+			if err != nil {
+				return err
+			}
+			seedPublicKey := seedPrivateKey.PublicKey().String()
+			seed.Info.Status.WireguardPublicKey = &seedPublicKey
+		}
 		if err := wireguard.Deploy(ctx); err != nil {
 			return err
 		}
