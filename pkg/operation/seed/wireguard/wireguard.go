@@ -20,6 +20,7 @@ import (
 
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/operation/botanist/component"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
@@ -27,6 +28,16 @@ type wireguard struct {
 	namespace    string
 	chartApplier kubernetes.ChartApplier
 	chartPath    string
+	values       *IntermediateValues
+}
+
+type IntermediateValues struct {
+	Wireguard *WireguardValues `json:"wireguard,omitempty"`
+}
+
+type WireguardValues struct {
+	Address    string `json:"address,omitempty"`
+	PrivateKey string `json:"privateKey,omitempty"`
 }
 
 // NewWireguard creates a new DeployWaiter for wireguard.
@@ -34,16 +45,20 @@ func NewWireguard(
 	namespace string,
 	chartApplier kubernetes.ChartApplier,
 	chartsRootPath string,
+	values *IntermediateValues,
 ) component.DeployWaiter {
 	return &wireguard{
 		namespace:    namespace,
 		chartApplier: chartApplier,
 		chartPath:    filepath.Join(chartsRootPath, wireguardReleaseName),
+		values:       values,
 	}
 }
 
 func (w *wireguard) Deploy(ctx context.Context) error {
-	return w.chartApplier.Apply(ctx, w.chartPath, w.namespace, wireguardReleaseName)
+	applierOptions := kubernetes.CopyApplierOptions(kubernetes.DefaultMergeFuncs)
+	applierOptions[appsv1.SchemeGroupVersion.WithKind("Deployment").GroupKind()] = kubernetes.DeploymentKeepReplicasMergeFunc
+	return w.chartApplier.Apply(ctx, w.chartPath, w.namespace, wireguardReleaseName, kubernetes.Values(w.values), applierOptions)
 }
 
 func (w *wireguard) Destroy(ctx context.Context) error {

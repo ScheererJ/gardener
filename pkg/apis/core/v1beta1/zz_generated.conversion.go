@@ -4345,6 +4345,7 @@ func autoConvert_v1beta1_SeedStatus_To_core_SeedStatus(in *SeedStatus, out *core
 	out.Allocatable = *(*v1.ResourceList)(unsafe.Pointer(&in.Allocatable))
 	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
 	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
+	out.WireguardPrivateKey = (*string)(unsafe.Pointer(in.WireguardPrivateKey))
 	return nil
 }
 
@@ -4363,6 +4364,7 @@ func autoConvert_core_SeedStatus_To_v1beta1_SeedStatus(in *core.SeedStatus, out 
 	out.Allocatable = *(*v1.ResourceList)(unsafe.Pointer(&in.Allocatable))
 	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
 	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
+	out.WireguardPrivateKey = (*string)(unsafe.Pointer(in.WireguardPrivateKey))
 	return nil
 }
 

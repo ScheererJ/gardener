@@ -5710,6 +5710,13 @@ func schema_pkg_apis_core_v1alpha1_SeedStatus(ref common.ReferenceCallback) comm
 							Format:      "",
 						},
 					},
+					"wireguardPrivateKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard private key of the seed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -11844,6 +11851,13 @@ func schema_pkg_apis_core_v1beta1_SeedStatus(ref common.ReferenceCallback) commo
 					"wireguardPublicKey": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Wireguard public key of the seed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"wireguardPrivateKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard private key of the seed",
 							Type:        []string{"string"},
 							Format:      "",
 						},

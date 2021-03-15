@@ -58,7 +58,7 @@ spec:
         {{- end }}
         {{- if .Values.wireguard.enabled }}
         - name: USE_UDP
-          value: {{ .Values.wireguard.useUDP }}
+          value: {{ .Values.wireguard.useUDP | quote }}
         {{- end }}
         securityContext:
           privileged: true

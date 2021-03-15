@@ -107,6 +107,8 @@ type SeedStatus struct {
 	WireguardIP *string
 	// Wireguard public key of the seed
 	WireguardPublicKey *string
+	// Wireguard private key of the seed
+	WireguardPrivateKey *string
 }
 
 // SeedBackup contains the object store configuration for backups for shoot (currently only etcd).

@@ -467,20 +467,18 @@ func (b *Botanist) generateCoreAddonsChart(ctx context.Context) (*chartrenderer.
 		}
 
 		if b.Shoot.WireguardTunnelEnabled {
-			wireguardService := &corev1.Service{}
-			err = b.K8sSeedClient.Client().Get(ctx, client.ObjectKey{Namespace: "wireguard", Name: "wireguard-vpn"}, wireguardService)
+			wireguardCIDRPostfix := strings.Split(b.Seed.Info.Spec.Settings.Wireguard.CIDR, "/")[1]
 			if err != nil {
 				return nil, err
 			}
-			hostAddress := ""
-			if wireguardService.Status.LoadBalancer.Ingress[0].Hostname != "" {
-				hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].Hostname
-			} else {
-				hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].IP
-			}
 			vpnShootConfig["wireguard"] = map[string]interface{}{
-				"peerEndpoint": fmt.Sprintf("%s:%d", hostAddress, wireguardService.Spec.Ports[0].Port),
-				"enabled":      fmt.Sprintf("%t", b.Shoot.WireguardTunnelEnabled),
+				"address":          fmt.Sprintf("%s/%s", b.Secrets[common.WireguardSecretName].Data["localWireguardIP"], wireguardCIDRPostfix),
+				"enabled":          fmt.Sprintf("%t", b.Shoot.WireguardTunnelEnabled),
+				"privateKey":       b.Secrets[common.WireguardSecretName].Data["privateKey"],
+				"peerPublicKey":    b.Secrets[common.WireguardSecretName].Data["peerPublicKey"],
+				"peerPresharedKey": b.Secrets[common.WireguardSecretName].Data["peerPresharedKey"],
+				"peerAllowedIPs":   fmt.Sprintf("%s/32", b.Secrets[common.WireguardSecretName].Data["remoteWireguardIP"]),
+				"peerEndpoint":     string(b.Secrets[common.WireguardSecretName].Data["remoteEndpoint"]),
 			}
 		}
 

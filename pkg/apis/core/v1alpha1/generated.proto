@@ -1911,6 +1911,10 @@ message SeedStatus {
   // Wireguard public key of the seed
   // +optional
   optional string wireguardPublicKey = 9;
+
+  // Wireguard private key of the seed
+  // +optional
+  optional string wireguardPrivateKey = 10;
 }
 
 // SeedTaint describes a taint on a seed.

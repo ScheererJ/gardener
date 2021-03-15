@@ -4438,6 +4438,7 @@ func autoConvert_v1alpha1_SeedStatus_To_core_SeedStatus(in *SeedStatus, out *cor
 	out.ClusterIdentity = (*string)(unsafe.Pointer(in.ClusterIdentity))
 	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
 	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
+	out.WireguardPrivateKey = (*string)(unsafe.Pointer(in.WireguardPrivateKey))
 	return nil
 }
 
@@ -4456,6 +4457,7 @@ func autoConvert_core_SeedStatus_To_v1alpha1_SeedStatus(in *core.SeedStatus, out
 	// WARNING: in.Allocatable requires manual conversion: does not exist in peer-type
 	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
 	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
+	out.WireguardPrivateKey = (*string)(unsafe.Pointer(in.WireguardPrivateKey))
 	return nil
 }
 

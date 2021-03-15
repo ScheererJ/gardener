@@ -7815,6 +7815,18 @@ string
 <p>Wireguard public key of the seed</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>wireguardPrivateKey</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wireguard private key of the seed</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="core.gardener.cloud/v1beta1.SeedTaint">SeedTaint

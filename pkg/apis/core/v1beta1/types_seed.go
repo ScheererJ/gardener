@@ -123,6 +123,9 @@ type SeedStatus struct {
 	// Wireguard public key of the seed
 	// +optional
 	WireguardPublicKey *string `json:"wireguardPublicKey,omitempty" protobuf:"bytes,9,opt,name=wireguardPublicKey"`
+	// Wireguard private key of the seed
+	// +optional
+	WireguardPrivateKey *string `json:"wireguardPrivateKey,omitempty" protobuf:"bytes,10,opt,name=wireguardPrivateKey"`
 }
 
 // SeedBackup contains the object store configuration for backups for shoot (currently only etcd).

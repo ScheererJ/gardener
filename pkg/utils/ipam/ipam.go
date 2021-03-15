@@ -19,14 +19,10 @@
 package ipam
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/gardener/gardener/pkg/apis/core"
-	"github.com/gardener/gardener/pkg/operation/common"
 )
 
 // Acquire the next free IP address in the configured CIDR range respecting already reserved, but not used IPs
@@ -156,17 +152,18 @@ func (p *WireguardSeedAddressProvider) Addresses() ([]string, error) {
 }
 
 func (p *WireguardShootAddressProvider) Addresses() ([]string, error) {
-	shootStates := &core.ShootStateList{}
-	if err := p.K8sGardenClient.Client().List(context.TODO(), shootStates); err != nil {
-		return nil, err
-	}
+	//shootStates := &core.ShootStateList{}
+	//if err := p.K8sGardenClient.Client().List(context.TODO(), shootStates); err != nil {
+	//	fmt.Printf("Error getting shootstate: %s\n", err.Error())
+	//	return nil, err
+	//}
 	result := make([]string, 0)
-	for _, shoot := range shootStates.Items {
-		for _, resourceData := range shoot.Spec.Gardener {
-			if resourceData.Name == common.WireguardSecretName {
-				// TODO: Check seed name and add IP
-			}
-		}
-	}
+	//for _, shoot := range shootStates.Items {
+	//	for _, resourceData := range shoot.Spec.Gardener {
+	//		if resourceData.Name == common.WireguardSecretName {
+	//			// TODO: Check seed name and add IP
+	//		}
+	//	}
+	//}
 	return result, nil
 }
