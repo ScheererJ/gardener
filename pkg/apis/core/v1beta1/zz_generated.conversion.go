@@ -4237,7 +4237,7 @@ func Convert_core_SeedSettingVerticalPodAutoscaler_To_v1beta1_SeedSettingVertica
 
 func autoConvert_v1beta1_SeedSettingWireguard_To_core_SeedSettingWireguard(in *SeedSettingWireguard, out *core.SeedSettingWireguard, s conversion.Scope) error {
 	out.Enabled = in.Enabled
-	out.WireguardCIDR = in.WireguardCIDR
+	out.CIDR = in.CIDR
 	return nil
 }
 
@@ -4248,7 +4248,7 @@ func Convert_v1beta1_SeedSettingWireguard_To_core_SeedSettingWireguard(in *SeedS
 
 func autoConvert_core_SeedSettingWireguard_To_v1beta1_SeedSettingWireguard(in *core.SeedSettingWireguard, out *SeedSettingWireguard, s conversion.Scope) error {
 	out.Enabled = in.Enabled
-	out.WireguardCIDR = in.WireguardCIDR
+	out.CIDR = in.CIDR
 	return nil
 }
 
@@ -4343,6 +4343,8 @@ func autoConvert_v1beta1_SeedStatus_To_core_SeedStatus(in *SeedStatus, out *core
 	out.ClusterIdentity = (*string)(unsafe.Pointer(in.ClusterIdentity))
 	out.Capacity = *(*v1.ResourceList)(unsafe.Pointer(&in.Capacity))
 	out.Allocatable = *(*v1.ResourceList)(unsafe.Pointer(&in.Allocatable))
+	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
+	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
 	return nil
 }
 
@@ -4359,6 +4361,8 @@ func autoConvert_core_SeedStatus_To_v1beta1_SeedStatus(in *core.SeedStatus, out 
 	out.ClusterIdentity = (*string)(unsafe.Pointer(in.ClusterIdentity))
 	out.Capacity = *(*v1.ResourceList)(unsafe.Pointer(&in.Capacity))
 	out.Allocatable = *(*v1.ResourceList)(unsafe.Pointer(&in.Allocatable))
+	out.WireguardIP = (*string)(unsafe.Pointer(in.WireguardIP))
+	out.WireguardPublicKey = (*string)(unsafe.Pointer(in.WireguardPublicKey))
 	return nil
 }
 

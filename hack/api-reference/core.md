@@ -7419,7 +7419,7 @@ bool
 </tr>
 <tr>
 <td>
-<code>wireguardCIDR</code></br>
+<code>cidr</code></br>
 <em>
 string
 </em>
@@ -7789,6 +7789,30 @@ Kubernetes core/v1.ResourceList
 <em>(Optional)</em>
 <p>Allocatable represents the resources of a seed that are available for scheduling.
 Defaults to Capacity.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wireguardIP</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wireguard IP of the seed</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wireguardPublicKey</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wireguard public key of the seed</p>
 </td>
 </tr>
 </tbody>

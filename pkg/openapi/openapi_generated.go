@@ -5488,14 +5488,14 @@ func schema_pkg_apis_core_v1alpha1_SeedSettingWireguard(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"wireguardCIDR": {
+					"cidr": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 				},
-				Required: []string{"enabled", "wireguardCIDR"},
+				Required: []string{"enabled", "cidr"},
 			},
 		},
 	}
@@ -5692,6 +5692,20 @@ func schema_pkg_apis_core_v1alpha1_SeedStatus(ref common.ReferenceCallback) comm
 					"clusterIdentity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ClusterIdentity is the identity of the Seed cluster",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"wireguardIP": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard IP of the seed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"wireguardPublicKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard public key of the seed",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -11598,14 +11612,14 @@ func schema_pkg_apis_core_v1beta1_SeedSettingWireguard(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
-					"wireguardCIDR": {
+					"cidr": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 				},
-				Required: []string{"enabled", "wireguardCIDR"},
+				Required: []string{"enabled", "cidr"},
 			},
 		},
 	}
@@ -11818,6 +11832,20 @@ func schema_pkg_apis_core_v1beta1_SeedStatus(ref common.ReferenceCallback) commo
 									},
 								},
 							},
+						},
+					},
+					"wireguardIP": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard IP of the seed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"wireguardPublicKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Wireguard public key of the seed",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

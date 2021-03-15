@@ -1764,7 +1764,7 @@ message SeedSettingVerticalPodAutoscaler {
 message SeedSettingWireguard {
   optional bool enabled = 1;
 
-  optional string wireguardCIDR = 2;
+  optional string cidr = 2;
 }
 
 // SeedSettings contains certain settings for this seed cluster.
@@ -1868,6 +1868,14 @@ message SeedStatus {
   // Defaults to Capacity.
   // +optional
   map<string, k8s.io.apimachinery.pkg.api.resource.Quantity> allocatable = 7;
+
+  // Wireguard IP of the seed
+  // +optional
+  optional string wireguardIP = 8;
+
+  // Wireguard public key of the seed
+  // +optional
+  optional string wireguardPublicKey = 9;
 }
 
 // SeedTaint describes a taint on a seed.

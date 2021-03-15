@@ -117,6 +117,12 @@ type SeedStatus struct {
 	// Defaults to Capacity.
 	// +optional
 	Allocatable corev1.ResourceList `json:"allocatable,omitempty" protobuf:"bytes,7,rep,name=allocatable"`
+	// Wireguard IP of the seed
+	// +optional
+	WireguardIP *string `json:"wireguardIP,omitempty" protobuf:"bytes,8,opt,name=wireguardIP"`
+	// Wireguard public key of the seed
+	// +optional
+	WireguardPublicKey *string `json:"wireguardPublicKey,omitempty" protobuf:"bytes,9,opt,name=wireguardPublicKey"`
 }
 
 // SeedBackup contains the object store configuration for backups for shoot (currently only etcd).
@@ -283,8 +289,8 @@ type SeedSettingVerticalPodAutoscaler struct {
 
 // SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
 type SeedSettingWireguard struct {
-	Enabled       bool   `json:"enabled" protobuf:"bytes,1,opt,name=enabled"`
-	WireguardCIDR string `json:"wireguardCIDR" protobuf:"bytes,2,opt,name=wireguardCIDR"`
+	Enabled bool   `json:"enabled" protobuf:"bytes,1,name=enabled"`
+	CIDR    string `json:"cidr" protobuf:"bytes,2,name=cidr"`
 }
 
 // SeedTaint describes a taint on a seed.

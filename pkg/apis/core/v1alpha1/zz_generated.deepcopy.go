@@ -3388,6 +3388,16 @@ func (in *SeedStatus) DeepCopyInto(out *SeedStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.WireguardIP != nil {
+		in, out := &in.WireguardIP, &out.WireguardIP
+		*out = new(string)
+		**out = **in
+	}
+	if in.WireguardPublicKey != nil {
+		in, out := &in.WireguardPublicKey, &out.WireguardPublicKey
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

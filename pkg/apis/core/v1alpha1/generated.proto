@@ -1803,7 +1803,7 @@ message SeedSettingVerticalPodAutoscaler {
 message SeedSettingWireguard {
   optional bool enabled = 1;
 
-  optional string wireguardCIDR = 2;
+  optional string cidr = 2;
 }
 
 // SeedSettings contains certain settings for this seed cluster.
@@ -1903,6 +1903,14 @@ message SeedStatus {
   // ClusterIdentity is the identity of the Seed cluster
   // +optional
   optional string clusterIdentity = 5;
+
+  // Wireguard IP of the seed
+  // +optional
+  optional string wireguardIP = 8;
+
+  // Wireguard public key of the seed
+  // +optional
+  optional string wireguardPublicKey = 9;
 }
 
 // SeedTaint describes a taint on a seed.

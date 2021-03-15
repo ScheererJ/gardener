@@ -103,6 +103,10 @@ type SeedStatus struct {
 	// Allocatable represents the resources of a seed that are available for scheduling.
 	// Defaults to Capacity.
 	Allocatable corev1.ResourceList
+	// Wireguard IP of the seed
+	WireguardIP *string
+	// Wireguard public key of the seed
+	WireguardPublicKey *string
 }
 
 // SeedBackup contains the object store configuration for backups for shoot (currently only etcd).
@@ -249,8 +253,8 @@ type SeedSettingVerticalPodAutoscaler struct {
 
 // SeedSettingWireguard hold the enabled flag and the cidr for the wireguard devices
 type SeedSettingWireguard struct {
-	Enabled       bool
-	WireguardCIDR string
+	Enabled bool
+	CIDR    string
 }
 
 // SeedTaint describes a taint on a seed.
