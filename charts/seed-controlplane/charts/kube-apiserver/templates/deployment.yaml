@@ -401,6 +401,8 @@ spec:
           value: {{ .Values.wireguard.vpnPort | quote }}
         - name: ENDPOINT
           value: {{ .Values.wireguard.vpnEndpoint }}
+        - name: USE_UDP
+          value: {{ .Values.wireguard.useUDP }}
         {{- end }}
         - name: APISERVER_AUTH_MODE
           value: client-cert

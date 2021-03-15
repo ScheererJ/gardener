@@ -20,3 +20,4 @@ wireguard:
   peerPresharedKey: <key>
   peerAllowedIPs: 192.168.17.1/32
   peerEndpoint: <host:port>
+  useUDP: "true"

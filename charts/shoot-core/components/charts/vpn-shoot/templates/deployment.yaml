@@ -56,6 +56,10 @@ spec:
         - name: NODE_NETWORK
           value: {{ .Values.nodeNetwork }}
         {{- end }}
+        {{- if .Values.wireguard.enabled }}
+        - name: USE_UDP
+          value: {{ .Values.wireguard.useUDP }}
+        {{- end }}
         securityContext:
           privileged: true
           capabilities:
