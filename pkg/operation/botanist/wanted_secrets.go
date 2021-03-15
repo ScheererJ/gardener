@@ -15,6 +15,7 @@
 package botanist
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -29,9 +30,12 @@ import (
 	"github.com/gardener/gardener/pkg/operation/botanist/extensions/operatingsystemconfig/downloader"
 	"github.com/gardener/gardener/pkg/operation/botanist/systemcomponents/metricsserver"
 	"github.com/gardener/gardener/pkg/operation/common"
+	"github.com/gardener/gardener/pkg/utils/ipam"
 	"github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/secrets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -721,13 +725,33 @@ func (b *Botanist) generateWantedSecretConfigs(basicAuthAPIServer *secrets.Basic
 	}
 
 	//TODO: add feature gate ...
-	if true {
+	if b.Shoot.WireguardTunnelEnabled {
+		ipamManager, err := ipam.GetOrCreate(b.Seed, b.K8sGardenClient)
+		if err != nil {
+			return nil, err
+		}
+		ip, err := ipamManager.AcquireIP()
+		if err != nil {
+			return nil, err
+		}
+		wireguardService := &corev1.Service{}
+		err = b.K8sSeedClient.Client().Get(context.TODO(), client.ObjectKey{Namespace: "wireguard", Name: "wireguard-vpn"}, wireguardService)
+		if err != nil {
+			return nil, err
+		}
+		hostAddress := ""
+		if wireguardService.Status.LoadBalancer.Ingress[0].Hostname != "" {
+			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].Hostname
+		} else {
+			hostAddress = wireguardService.Status.LoadBalancer.Ingress[0].IP
+		}
 		secretList = append(secretList, &secrets.WireguardSecretConfig{
 			Name:              common.WireguardSecretName,
-			LocalWireguardIP:  "192.168.17.2",
-			RemoteWireguardIP: "192.168.17.1",
-			RemoteEndpoint:    "123.123.123.123",
-			PeerPublicKey:     "abc123",
+			LocalWireguardIP:  ip,
+			RemoteWireguardIP: *b.Seed.Info.Status.WireguardIP,
+			RemoteEndpoint:    fmt.Sprintf("%s:%d", hostAddress, wireguardService.Spec.Ports[0].Port),
+			PeerPublicKey:     *b.Seed.Info.Status.WireguardPublicKey,
+			SeedName:          *b.Shoot.Info.Status.SeedName,
 		})
 	}
 
