@@ -22,6 +22,9 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/operation/seed"
 )
 
 // Provides a list of IP addresses as an array
@@ -46,4 +49,13 @@ type LockedIpamManager struct {
 	Ipam         *IpamManager
 	Mutex        sync.Mutex
 	Reservations *ReservationManager
+}
+
+type WireguardSeedAddressProvider struct {
+	Seed *seed.Seed
+}
+
+type WireguardShootAddressProvider struct {
+	K8sGardenClient kubernetes.Interface
+	SeedName        *string
 }

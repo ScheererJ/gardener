@@ -19,10 +19,23 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/operation/common"
+	"github.com/gardener/gardener/pkg/operation/seed"
+)
+
+const defaultReservationTime = 1 * time.Minute
+
+var (
+	mutex        sync.Mutex
+	ipamManagers = make(map[string]*LockedIpamManager)
 )
 
 // Acquire the next free IP address in the configured CIDR range respecting already reserved, but not used IPs
@@ -144,3 +157,49 @@ func DuplicateIP(ip net.IP) net.IP {
 	}, nil
  }
  
+func GetOrCreate(seed *seed.Seed, k8sGardenClient kubernetes.Interface) (*LockedIpamManager, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	var err error
+	result := ipamManagers[seed.Info.Name]
+	if result == nil {
+		seedProvider := &WireguardSeedAddressProvider{
+			Seed: seed,
+		}
+		shootProvider := &WireguardShootAddressProvider{
+			K8sGardenClient: k8sGardenClient,
+			SeedName: &seed.Info.Name,
+		}
+		cidr := seed.Info.Spec.Settings.Wireguard.CIDR
+		result, err = NewLockedIpamManager([]AddressProvider{seedProvider, shootProvider}, cidr, defaultReservationTime)
+		if err != nil {
+			return nil, err
+		}
+		ipamManagers[seed.Info.Name] = result
+	}
+	return result, nil
+}
+
+
+func (p *WireguardSeedAddressProvider) Addresses() ([]string, error) {
+	if p.Seed.Info.Status.WireguardIP != nil {
+		return []string{*p.Seed.Info.Status.WireguardIP}, nil
+	}
+	return []string{}, nil
+}
+
+func (p *WireguardShootAddressProvider) Addresses() ([]string, error) {
+	shootStates := &core.ShootStateList{}
+	if err := p.K8sGardenClient.Client().List(context.TODO(), shootStates); err != nil {
+		return nil, err
+	}
+	result := make([]string, 0)
+	for _, shoot := range shootStates.Items {
+		for _, resourceData := range shoot.Spec.Gardener {
+			if resourceData.Name == common.WireguardSecretName {
+				// TODO: Check seed name and add IP
+			}
+		}
+	}
+	return result, nil
+}
