@@ -3,6 +3,15 @@ wireguard:
   address: 192.168.17.1/24
   privateKey: <key>
   internalPort: 10200
-  peerPublicKey: <key>
-  peerPresharedKey: <key>
-  peerAllowedIPs: 192.168.17.2/32
+  peer1:
+    PublicKey: <key>
+    PresharedKey: <key>
+    AllowedIPs: 192.168.17.2/32
+  peer2:
+    PublicKey: <key>
+    PresharedKey: <key>
+    AllowedIPs: 192.168.17.3/32
+  peer3:
+    PublicKey: <key>
+    PresharedKey: <key>
+    AllowedIPs: 192.168.17.4/32
