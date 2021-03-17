@@ -717,7 +717,7 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 
 	val := wireguard.IntermediateValues{}
 	w := wireguard.NewWireguard("wireguard", chartApplier, common.ChartPath, &val)
-	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) && seed.Info.Spec.Settings.Wireguard != nil && seed.Info.Spec.Settings.Wireguard.Enabled {
+	if gardenletfeatures.FeatureGate.Enabled(features.WireguardTunnel) && seed.Info.Spec.Settings.Wireguard != nil && seed.Info.Spec.Settings.Wireguard.Enabled && false {
 		if seed.Info.Status.WireguardIP == nil {
 			ipamManager, err := GetOrCreate(seed, k8sGardenClient)
 			if err != nil {
