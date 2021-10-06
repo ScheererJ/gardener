@@ -211,9 +211,9 @@ func defaultExternalAuthzServer(
 		return nil, err
 	}
 
-	return extauthzserver.New(
+	return extauthzserver.NewExtAuthServer(
 		c,
-		"garden",
+		v1beta1constants.GardenNamespace,
 		image.String(),
 		1,
 	), nil
