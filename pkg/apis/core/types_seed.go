@@ -244,6 +244,13 @@ type SeedSettingScheduling struct {
 type SeedSettingLoadBalancerServices struct {
 	// Annotations is a map of annotations that will be injected/merged into every load balancer service object.
 	Annotations map[string]string
+	// ExternalTrafficPolicy describes how nodes distribute service traffic they
+	// receive on one of the service's "externally-facing" addresses.
+	// Defaults to "Cluster".
+	ExternalTrafficPolicy *corev1.ServiceExternalTrafficPolicyType
+	// SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones.
+	// Defaults to false.
+	SpreadAcrossZones *bool
 }
 
 // SeedSettingVerticalPodAutoscaler controls certain settings for the vertical pod autoscaler components deployed in the

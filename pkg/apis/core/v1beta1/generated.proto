@@ -1903,6 +1903,17 @@ message SeedSettingLoadBalancerServices {
   // Annotations is a map of annotations that will be injected/merged into every load balancer service object.
   // +optional
   map<string, string> annotations = 1;
+
+  // ExternalTrafficPolicy describes how nodes distribute service traffic they
+  // receive on one of the service's "externally-facing" addresses.
+  // Defaults to "Cluster".
+  // +optional
+  optional string externalTrafficPolicy = 2;
+
+  // SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones.
+  // Defaults to false.
+  // +optional
+  optional bool spreadAcrossZones = 3;
 }
 
 // SeedSettingOwnerChecks controls certain owner checks settings for shoots scheduled on this seed.

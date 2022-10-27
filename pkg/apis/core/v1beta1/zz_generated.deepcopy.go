@@ -3369,6 +3369,16 @@ func (in *SeedSettingLoadBalancerServices) DeepCopyInto(out *SeedSettingLoadBala
 			(*out)[key] = val
 		}
 	}
+	if in.ExternalTrafficPolicy != nil {
+		in, out := &in.ExternalTrafficPolicy, &out.ExternalTrafficPolicy
+		*out = new(v1.ServiceExternalTrafficPolicyType)
+		**out = **in
+	}
+	if in.SpreadAcrossZones != nil {
+		in, out := &in.SpreadAcrossZones, &out.SpreadAcrossZones
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

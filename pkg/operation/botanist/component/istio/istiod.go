@@ -133,7 +133,7 @@ func (i *istiod) Deploy(ctx context.Context) error {
 			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   istioIngressGateway.Namespace,
-					Labels: getIngressGatewayNamespaceLabels(istioIngressGateway.Values.Labels),
+					Labels: getIngressGatewayNamespaceLabels(istioIngressGateway.Values.Labels, istioIngressGateway.Values.AdditionalNamespaceLabels),
 				},
 			},
 		); client.IgnoreAlreadyExists(err) != nil {

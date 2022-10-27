@@ -134,30 +134,6 @@ func (r *shootReconciler) runReconcileShootFlow(ctx context.Context, o *operatio
 			Fn:           flow.TaskFn(botanist.DeployCloudProviderSecret).RetryUntilTimeout(defaultInterval, defaultTimeout),
 			Dependencies: flow.NewTaskIDs(deployNamespace),
 		})
-		deployKubeAPIServerService = g.Add(flow.Task{
-			Name: "Deploying Kubernetes API server service in the Seed cluster",
-			Fn: flow.TaskFn(func(ctx context.Context) error {
-				return botanist.DeployKubeAPIService(ctx, sniPhase)
-			}).
-				RetryUntilTimeout(defaultInterval, defaultTimeout).
-				SkipIf(o.Shoot.HibernationEnabled && !useSNI),
-			Dependencies: flow.NewTaskIDs(deployNamespace, ensureShootClusterIdentity),
-		})
-		_ = g.Add(flow.Task{
-			Name:         "Deploying Kubernetes API server service SNI settings in the Seed cluster",
-			Fn:           flow.TaskFn(botanist.DeployKubeAPIServerSNI).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(deployKubeAPIServerService),
-		})
-		waitUntilKubeAPIServerServiceIsReady = g.Add(flow.Task{
-			Name:         "Waiting until Kubernetes API LoadBalancer in the Seed cluster has reported readiness",
-			Fn:           flow.TaskFn(botanist.Shoot.Components.ControlPlane.KubeAPIServerService.Wait).SkipIf(o.Shoot.HibernationEnabled && !useSNI),
-			Dependencies: flow.NewTaskIDs(deployKubeAPIServerService),
-		})
-		_ = g.Add(flow.Task{
-			Name:         "Ensuring advertised addresses for the Shoot",
-			Fn:           botanist.UpdateAdvertisedAddresses,
-			Dependencies: flow.NewTaskIDs(waitUntilKubeAPIServerServiceIsReady),
-		})
 		initializeSecretsManagement = g.Add(flow.Task{
 			Name:         "Initializing secrets management",
 			Fn:           flow.TaskFn(botanist.InitializeSecretsManagement).RetryUntilTimeout(defaultInterval, defaultTimeout),
@@ -172,26 +148,6 @@ func (r *shootReconciler) runReconcileShootFlow(ctx context.Context, o *operatio
 			Name:         "Deploying owner domain DNS record",
 			Fn:           botanist.DeployOwnerDNSResources,
 			Dependencies: flow.NewTaskIDs(ensureShootStateExists, deployReferencedResources),
-		})
-		deployInternalDomainDNSRecord = g.Add(flow.Task{
-			Name: "Deploying internal domain DNS record",
-			Fn: flow.TaskFn(func(ctx context.Context) error {
-				if err := botanist.DeployOrDestroyInternalDNSRecord(ctx); err != nil {
-					return err
-				}
-				return removeTaskAnnotation(ctx, o, generation, v1beta1constants.ShootTaskDeployDNSRecordInternal)
-			}).DoIf(!o.Shoot.HibernationEnabled),
-			Dependencies: flow.NewTaskIDs(deployReferencedResources, waitUntilKubeAPIServerServiceIsReady, deployOwnerDomainDNSRecord),
-		})
-		deployExternalDomainDNSRecord = g.Add(flow.Task{
-			Name: "Deploying external domain DNS record",
-			Fn: flow.TaskFn(func(ctx context.Context) error {
-				if err := botanist.DeployOrDestroyExternalDNSRecord(ctx); err != nil {
-					return err
-				}
-				return removeTaskAnnotation(ctx, o, generation, v1beta1constants.ShootTaskDeployDNSRecordExternal)
-			}).DoIf(!o.Shoot.HibernationEnabled),
-			Dependencies: flow.NewTaskIDs(deployReferencedResources, waitUntilKubeAPIServerServiceIsReady, deployOwnerDomainDNSRecord),
 		})
 		deployInfrastructure = g.Add(flow.Task{
 			Name:         "Deploying Shoot infrastructure",
@@ -279,10 +235,59 @@ func (r *shootReconciler) runReconcileShootFlow(ctx context.Context, o *operatio
 			Fn:           flow.TaskFn(botanist.WaitUntilEtcdsReady).SkipIf(o.Shoot.HibernationEnabled),
 			Dependencies: flow.NewTaskIDs(deployETCD),
 		})
-		_ = g.Add(flow.Task{
+		addZoneToNamespace = g.Add(flow.Task{
 			Name:         "Adding zone information to Shoot namespace",
 			Fn:           flow.TaskFn(botanist.AddZoneInformationToSeedNamespace).SkipIf(o.Shoot.HibernationEnabled),
 			Dependencies: flow.NewTaskIDs(waitUntilEtcdReady),
+		})
+		adaptExposureClass = g.Add(flow.Task{
+			Name:         "Adapt single zone exposure class on multi zone seed",
+			Fn:           flow.TaskFn(botanist.AdaptSingleZoneExposureClassOnMultiZoneSeed).RetryUntilTimeout(defaultInterval, defaultTimeout),
+			Dependencies: flow.NewTaskIDs(deployNamespace, addZoneToNamespace),
+		})
+		deployKubeAPIServerService = g.Add(flow.Task{
+			Name: "Deploying Kubernetes API server service in the Seed cluster",
+			Fn: flow.TaskFn(func(ctx context.Context) error {
+				return botanist.DeployKubeAPIService(ctx, sniPhase)
+			}).
+				RetryUntilTimeout(defaultInterval, defaultTimeout).
+				SkipIf(o.Shoot.HibernationEnabled && !useSNI),
+			Dependencies: flow.NewTaskIDs(deployNamespace, adaptExposureClass, ensureShootClusterIdentity),
+		})
+		_ = g.Add(flow.Task{
+			Name:         "Deploying Kubernetes API server service SNI settings in the Seed cluster",
+			Fn:           flow.TaskFn(botanist.DeployKubeAPIServerSNI).RetryUntilTimeout(defaultInterval, defaultTimeout),
+			Dependencies: flow.NewTaskIDs(deployKubeAPIServerService),
+		})
+		waitUntilKubeAPIServerServiceIsReady = g.Add(flow.Task{
+			Name:         "Waiting until Kubernetes API LoadBalancer in the Seed cluster has reported readiness",
+			Fn:           flow.TaskFn(botanist.Shoot.Components.ControlPlane.KubeAPIServerService.Wait).SkipIf(o.Shoot.HibernationEnabled && !useSNI),
+			Dependencies: flow.NewTaskIDs(deployKubeAPIServerService),
+		})
+		_ = g.Add(flow.Task{
+			Name:         "Ensuring advertised addresses for the Shoot",
+			Fn:           botanist.UpdateAdvertisedAddresses,
+			Dependencies: flow.NewTaskIDs(waitUntilKubeAPIServerServiceIsReady),
+		})
+		deployInternalDomainDNSRecord = g.Add(flow.Task{
+			Name: "Deploying internal domain DNS record",
+			Fn: flow.TaskFn(func(ctx context.Context) error {
+				if err := botanist.DeployOrDestroyInternalDNSRecord(ctx); err != nil {
+					return err
+				}
+				return removeTaskAnnotation(ctx, o, generation, v1beta1constants.ShootTaskDeployDNSRecordInternal)
+			}).DoIf(!o.Shoot.HibernationEnabled),
+			Dependencies: flow.NewTaskIDs(deployReferencedResources, waitUntilKubeAPIServerServiceIsReady, deployOwnerDomainDNSRecord),
+		})
+		deployExternalDomainDNSRecord = g.Add(flow.Task{
+			Name: "Deploying external domain DNS record",
+			Fn: flow.TaskFn(func(ctx context.Context) error {
+				if err := botanist.DeployOrDestroyExternalDNSRecord(ctx); err != nil {
+					return err
+				}
+				return removeTaskAnnotation(ctx, o, generation, v1beta1constants.ShootTaskDeployDNSRecordExternal)
+			}).DoIf(!o.Shoot.HibernationEnabled),
+			Dependencies: flow.NewTaskIDs(deployReferencedResources, waitUntilKubeAPIServerServiceIsReady, deployOwnerDomainDNSRecord),
 		})
 		deployControlPlane = g.Add(flow.Task{
 			Name:         "Deploying shoot control plane components",
@@ -345,7 +350,7 @@ func (r *shootReconciler) runReconcileShootFlow(ctx context.Context, o *operatio
 		deployVPNSeedServer = g.Add(flow.Task{
 			Name:         "Deploying vpn-seed-server",
 			Fn:           flow.TaskFn(botanist.DeployVPNServer).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(initializeSecretsManagement, deployNamespace),
+			Dependencies: flow.NewTaskIDs(initializeSecretsManagement, deployNamespace, adaptExposureClass),
 		})
 		deployControlPlaneExposure = g.Add(flow.Task{
 			Name:         "Deploying shoot control plane exposure components",

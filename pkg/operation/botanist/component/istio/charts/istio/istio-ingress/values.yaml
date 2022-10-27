@@ -18,3 +18,7 @@ ports: []
 #  targetPort: 8443
 serviceName: istio-ingressgateway
 ingressVersion: "1.14.1"
+#externalTrafficPolicy: Cluster
+#spreadAcrossZones: false
+minReplicas: 2
+maxReplicas: 5

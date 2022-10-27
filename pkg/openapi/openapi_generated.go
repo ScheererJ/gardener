@@ -6242,6 +6242,20 @@ func schema_pkg_apis_core_v1alpha1_SeedSettingLoadBalancerServices(ref common.Re
 							},
 						},
 					},
+					"externalTrafficPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalTrafficPolicy describes how nodes distribute service traffic they receive on one of the service's \"externally-facing\" addresses. Defaults to \"Cluster\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"spreadAcrossZones": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -13339,6 +13353,20 @@ func schema_pkg_apis_core_v1beta1_SeedSettingLoadBalancerServices(ref common.Ref
 									},
 								},
 							},
+						},
+					},
+					"externalTrafficPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalTrafficPolicy describes how nodes distribute service traffic they receive on one of the service's \"externally-facing\" addresses. Defaults to \"Cluster\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"spreadAcrossZones": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

@@ -4762,6 +4762,8 @@ func Convert_core_SeedSettingExcessCapacityReservation_To_v1alpha1_SeedSettingEx
 
 func autoConvert_v1alpha1_SeedSettingLoadBalancerServices_To_core_SeedSettingLoadBalancerServices(in *SeedSettingLoadBalancerServices, out *core.SeedSettingLoadBalancerServices, s conversion.Scope) error {
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	out.ExternalTrafficPolicy = (*v1.ServiceExternalTrafficPolicyType)(unsafe.Pointer(in.ExternalTrafficPolicy))
+	out.SpreadAcrossZones = (*bool)(unsafe.Pointer(in.SpreadAcrossZones))
 	return nil
 }
 
@@ -4772,6 +4774,8 @@ func Convert_v1alpha1_SeedSettingLoadBalancerServices_To_core_SeedSettingLoadBal
 
 func autoConvert_core_SeedSettingLoadBalancerServices_To_v1alpha1_SeedSettingLoadBalancerServices(in *core.SeedSettingLoadBalancerServices, out *SeedSettingLoadBalancerServices, s conversion.Scope) error {
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	out.ExternalTrafficPolicy = (*v1.ServiceExternalTrafficPolicyType)(unsafe.Pointer(in.ExternalTrafficPolicy))
+	out.SpreadAcrossZones = (*bool)(unsafe.Pointer(in.SpreadAcrossZones))
 	return nil
 }
 

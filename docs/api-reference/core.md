@@ -7903,6 +7903,35 @@ map[string]string
 <p>Annotations is a map of annotations that will be injected/merged into every load balancer service object.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>externalTrafficPolicy</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#serviceexternaltrafficpolicytype-v1-core">
+Kubernetes core/v1.ServiceExternalTrafficPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExternalTrafficPolicy describes how nodes distribute service traffic they
+receive on one of the service&rsquo;s &ldquo;externally-facing&rdquo; addresses.
+Defaults to &ldquo;Cluster&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>spreadAcrossZones</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones.
+Defaults to false.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="core.gardener.cloud/v1beta1.SeedSettingOwnerChecks">SeedSettingOwnerChecks

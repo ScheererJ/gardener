@@ -1170,6 +1170,8 @@ func Convert_config_KubeconfigValidity_To_v1alpha1_KubeconfigValidity(in *config
 
 func autoConvert_v1alpha1_LoadBalancerServiceConfig_To_config_LoadBalancerServiceConfig(in *LoadBalancerServiceConfig, out *config.LoadBalancerServiceConfig, s conversion.Scope) error {
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	out.ExternalTrafficPolicy = (*corev1.ServiceExternalTrafficPolicyType)(unsafe.Pointer(in.ExternalTrafficPolicy))
+	out.SpreadAcrossZones = (*bool)(unsafe.Pointer(in.SpreadAcrossZones))
 	return nil
 }
 
@@ -1180,6 +1182,8 @@ func Convert_v1alpha1_LoadBalancerServiceConfig_To_config_LoadBalancerServiceCon
 
 func autoConvert_config_LoadBalancerServiceConfig_To_v1alpha1_LoadBalancerServiceConfig(in *config.LoadBalancerServiceConfig, out *LoadBalancerServiceConfig, s conversion.Scope) error {
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	out.ExternalTrafficPolicy = (*corev1.ServiceExternalTrafficPolicyType)(unsafe.Pointer(in.ExternalTrafficPolicy))
+	out.SpreadAcrossZones = (*bool)(unsafe.Pointer(in.SpreadAcrossZones))
 	return nil
 }
 
@@ -1356,6 +1360,7 @@ func autoConvert_v1alpha1_SNIIngress_To_config_SNIIngress(in *SNIIngress, out *c
 	out.ServiceName = (*string)(unsafe.Pointer(in.ServiceName))
 	out.ServiceExternalIP = (*string)(unsafe.Pointer(in.ServiceExternalIP))
 	out.Namespace = (*string)(unsafe.Pointer(in.Namespace))
+	out.AdditionalNamespaceLabels = *(*map[string]string)(unsafe.Pointer(&in.AdditionalNamespaceLabels))
 	out.Labels = *(*map[string]string)(unsafe.Pointer(&in.Labels))
 	return nil
 }
@@ -1369,6 +1374,7 @@ func autoConvert_config_SNIIngress_To_v1alpha1_SNIIngress(in *config.SNIIngress,
 	out.ServiceName = (*string)(unsafe.Pointer(in.ServiceName))
 	out.ServiceExternalIP = (*string)(unsafe.Pointer(in.ServiceExternalIP))
 	out.Namespace = (*string)(unsafe.Pointer(in.Namespace))
+	out.AdditionalNamespaceLabels = *(*map[string]string)(unsafe.Pointer(&in.AdditionalNamespaceLabels))
 	out.Labels = *(*map[string]string)(unsafe.Pointer(&in.Labels))
 	return nil
 }

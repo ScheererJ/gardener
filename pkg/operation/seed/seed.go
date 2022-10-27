@@ -128,6 +128,8 @@ func (b *Builder) Build(ctx context.Context) (*Seed, error) {
 
 	if seedObject.Spec.Settings != nil && seedObject.Spec.Settings.LoadBalancerServices != nil {
 		seed.LoadBalancerServiceAnnotations = seedObject.Spec.Settings.LoadBalancerServices.Annotations
+		seed.ExternalTrafficPolicy = seedObject.Spec.Settings.LoadBalancerServices.ExternalTrafficPolicy
+		seed.SpreadAcrossZones = seedObject.Spec.Settings.LoadBalancerServices.SpreadAcrossZones
 	}
 
 	return seed, nil

@@ -21,6 +21,7 @@ import (
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/chartrenderer"
+	"github.com/gardener/gardener/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -44,12 +45,17 @@ type IngressGateway struct {
 // IngressValues holds values for the istio-ingress chart.
 // The only opened port is 15021.
 type IngressValues struct {
-	TrustDomain     string            `json:"trustDomain,omitempty"`
-	Image           string            `json:"image,omitempty"`
-	Annotations     map[string]string `json:"annotations,omitempty"`
-	IstiodNamespace string            `json:"istiodNamespace,omitempty"`
-	LoadBalancerIP  *string           `json:"loadBalancerIP,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
+	TrustDomain               string                                   `json:"trustDomain,omitempty"`
+	Image                     string                                   `json:"image,omitempty"`
+	Annotations               map[string]string                        `json:"annotations,omitempty"`
+	ExternalTrafficPolicy     *corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	SpreadAcrossZones         *bool                                    `json:"spreadAcrossZones,omitempty"`
+	MinReplicas               *int                                     `json:"minReplicas,omitempty"`
+	MaxReplicas               *int                                     `json:"maxReplicas,omitempty"`
+	IstiodNamespace           string                                   `json:"istiodNamespace,omitempty"`
+	LoadBalancerIP            *string                                  `json:"loadBalancerIP,omitempty"`
+	Labels                    map[string]string                        `json:"labels,omitempty"`
+	AdditionalNamespaceLabels map[string]string                        `json:"additionalNamespaceLabels,omitempty"`
 	// Ports is a list of all Ports the istio-ingress gateways is listening on.
 	// Port 15021 and 15000 cannot be used.
 	Ports []corev1.ServicePort `json:"ports,omitempty"`
@@ -60,19 +66,28 @@ func (i *istiod) generateIstioIngressGatewayChart() (*chartrenderer.RenderedChar
 
 	for _, istioIngressGateway := range i.istioIngressGatewayValues {
 		values := map[string]interface{}{
-			"trustDomain":       istioIngressGateway.Values.TrustDomain,
-			"labels":            istioIngressGateway.Values.Labels,
-			"annotations":       istioIngressGateway.Values.Annotations,
-			"deployNamespace":   false,
-			"priorityClassName": "istio-ingressgateway",
-			"ports":             istioIngressGateway.Values.Ports,
-			"image":             istioIngressGateway.Values.Image,
-			"istiodNamespace":   istioIngressGateway.Values.IstiodNamespace,
-			"loadBalancerIP":    istioIngressGateway.Values.LoadBalancerIP,
-			"serviceName":       v1beta1constants.DefaultSNIIngressServiceName,
+			"trustDomain":           istioIngressGateway.Values.TrustDomain,
+			"labels":                istioIngressGateway.Values.Labels,
+			"annotations":           istioIngressGateway.Values.Annotations,
+			"externalTrafficPolicy": istioIngressGateway.Values.ExternalTrafficPolicy,
+			"spreadAcrossZones":     istioIngressGateway.Values.SpreadAcrossZones,
+			"deployNamespace":       false,
+			"priorityClassName":     "istio-ingressgateway",
+			"ports":                 istioIngressGateway.Values.Ports,
+			"image":                 istioIngressGateway.Values.Image,
+			"istiodNamespace":       istioIngressGateway.Values.IstiodNamespace,
+			"loadBalancerIP":        istioIngressGateway.Values.LoadBalancerIP,
+			"serviceName":           v1beta1constants.DefaultSNIIngressServiceName,
 			"portsNames": map[string]interface{}{
 				"status": istioIngressGatewayServicePortNameStatus,
 			},
+		}
+
+		if istioIngressGateway.Values.MinReplicas != nil {
+			values["minReplicas"] = *istioIngressGateway.Values.MinReplicas
+		}
+		if istioIngressGateway.Values.MaxReplicas != nil {
+			values["maxReplicas"] = *istioIngressGateway.Values.MaxReplicas
 		}
 
 		renderedIngressChart, err := i.chartRenderer.RenderEmbeddedFS(chartIngress, chartPathIngress, ManagedResourceControlName, istioIngressGateway.Namespace, values)
@@ -89,7 +104,7 @@ func (i *istiod) generateIstioIngressGatewayChart() (*chartrenderer.RenderedChar
 	return renderedChart, nil
 }
 
-func getIngressGatewayNamespaceLabels(labels map[string]string) map[string]string {
+func getIngressGatewayNamespaceLabels(labels map[string]string, additionalLabels map[string]string) map[string]string {
 	var namespaceLabels = map[string]string{
 		"istio-operator-managed": "Reconcile",
 		"istio-injection":        "disabled",
@@ -102,7 +117,7 @@ func getIngressGatewayNamespaceLabels(labels map[string]string) map[string]strin
 		namespaceLabels[v1beta1constants.LabelExposureClassHandlerName] = value
 	}
 
-	return namespaceLabels
+	return utils.MergeStringMaps(additionalLabels, namespaceLabels)
 }
 
 func addSuffixToManifestsName(charts *chartrenderer.RenderedChart, suffix string) {

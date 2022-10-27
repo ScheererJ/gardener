@@ -187,13 +187,22 @@ func defaultIstio(ctx context.Context,
 	}
 
 	defaultIngressGatewayConfig := istio.IngressValues{
-		TrustDomain:     gardencorev1beta1.DefaultDomain,
-		Image:           igwImage.String(),
-		IstiodNamespace: v1beta1constants.IstioSystemNamespace,
-		Annotations:     seed.LoadBalancerServiceAnnotations,
-		Ports:           []corev1.ServicePort{},
-		LoadBalancerIP:  conf.SNI.Ingress.ServiceExternalIP,
-		Labels:          conf.SNI.Ingress.Labels,
+		TrustDomain:               gardencorev1beta1.DefaultDomain,
+		Image:                     igwImage.String(),
+		IstiodNamespace:           v1beta1constants.IstioSystemNamespace,
+		Annotations:               seed.LoadBalancerServiceAnnotations,
+		ExternalTrafficPolicy:     seed.ExternalTrafficPolicy,
+		SpreadAcrossZones:         seed.SpreadAcrossZones,
+		Ports:                     []corev1.ServicePort{},
+		LoadBalancerIP:            conf.SNI.Ingress.ServiceExternalIP,
+		Labels:                    conf.SNI.Ingress.Labels,
+		AdditionalNamespaceLabels: conf.SNI.Ingress.AdditionalNamespaceLabels,
+	}
+
+	if seed.GetInfo().Spec.HighAvailability != nil && seed.GetInfo().Spec.HighAvailability.FailureTolerance.Type == gardencorev1beta1.FailureToleranceTypeZone {
+		// Assuming three zones
+		defaultIngressGatewayConfig.MinReplicas = pointer.Int(3 * 2)
+		defaultIngressGatewayConfig.MaxReplicas = pointer.Int(3 * 4)
 	}
 
 	// even if SNI is being disabled, the existing ports must stay the same
@@ -223,13 +232,16 @@ func defaultIstio(ctx context.Context,
 	for _, handler := range conf.ExposureClassHandlers {
 		istioIngressGateway = append(istioIngressGateway, istio.IngressGateway{
 			Values: istio.IngressValues{
-				TrustDomain:     gardencorev1beta1.DefaultDomain,
-				Image:           igwImage.String(),
-				IstiodNamespace: v1beta1constants.IstioSystemNamespace,
-				Annotations:     utils.MergeStringMaps(seed.LoadBalancerServiceAnnotations, handler.LoadBalancerService.Annotations),
-				Ports:           defaultIngressGatewayConfig.Ports,
-				LoadBalancerIP:  handler.SNI.Ingress.ServiceExternalIP,
-				Labels:          gutil.GetMandatoryExposureClassHandlerSNILabels(handler.SNI.Ingress.Labels, handler.Name),
+				TrustDomain:               gardencorev1beta1.DefaultDomain,
+				Image:                     igwImage.String(),
+				IstiodNamespace:           v1beta1constants.IstioSystemNamespace,
+				Annotations:               utils.MergeStringMaps(seed.LoadBalancerServiceAnnotations, handler.LoadBalancerService.Annotations),
+				ExternalTrafficPolicy:     mergeExternalTrafficPolicy(handler.LoadBalancerService.ExternalTrafficPolicy, seed.ExternalTrafficPolicy),
+				SpreadAcrossZones:         handler.LoadBalancerService.SpreadAcrossZones,
+				Ports:                     defaultIngressGatewayConfig.Ports,
+				LoadBalancerIP:            handler.SNI.Ingress.ServiceExternalIP,
+				Labels:                    gutil.GetMandatoryExposureClassHandlerSNILabels(handler.SNI.Ingress.Labels, handler.Name),
+				AdditionalNamespaceLabels: handler.SNI.Ingress.AdditionalNamespaceLabels,
 			},
 			Namespace: *handler.SNI.Ingress.Namespace,
 		})
@@ -499,4 +511,11 @@ func defaultSystem(c client.Client, imageVector imagevector.ImageVector, reserve
 			},
 		},
 	), nil
+}
+
+func mergeExternalTrafficPolicy(primaryPolicy, fallbackPolicy *corev1.ServiceExternalTrafficPolicyType) *corev1.ServiceExternalTrafficPolicyType {
+	if primaryPolicy != nil {
+		return primaryPolicy
+	}
+	return fallbackPolicy
 }

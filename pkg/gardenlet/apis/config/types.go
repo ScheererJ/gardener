@@ -491,6 +491,10 @@ type SNIIngress struct {
 	// Namespace is the namespace in which the ingressgateway is deployed in.
 	// Defaults to "istio-ingress".
 	Namespace *string
+	// AdditionalNamespaceLabels of the namespace in which the ingressgateway is deployed in.
+	// Default labels include "istio-operator-managed": "Reconcile", "istio-injection": "disabled",
+	// optionally "gardener.cloud/role": "exposureclass-handler" and "handler.exposureclass.gardener.cloud/name": "#name"
+	AdditionalNamespaceLabels map[string]string
 	// Labels of the ingressgateway
 	// Defaults to "istio: ingressgateway".
 	Labels map[string]string
@@ -563,6 +567,13 @@ type ExposureClassHandler struct {
 type LoadBalancerServiceConfig struct {
 	// Annotations is a key value map to annotate the underlying load balancer services.
 	Annotations map[string]string
+	// ExternalTrafficPolicy describes how nodes distribute service traffic they
+	// receive on one of the service's "externally-facing" addresses.
+	// Defaults to "Cluster".
+	ExternalTrafficPolicy *corev1.ServiceExternalTrafficPolicyType
+	// SpreadAcrossZones indicates whether the istio ingress pods should be spread across zones.
+	// Defaults to false.
+	SpreadAcrossZones *bool
 }
 
 // MonitoringConfig contains settings for the monitoring stack.

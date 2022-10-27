@@ -742,6 +742,16 @@ func (in *LoadBalancerServiceConfig) DeepCopyInto(out *LoadBalancerServiceConfig
 			(*out)[key] = val
 		}
 	}
+	if in.ExternalTrafficPolicy != nil {
+		in, out := &in.ExternalTrafficPolicy, &out.ExternalTrafficPolicy
+		*out = new(corev1.ServiceExternalTrafficPolicyType)
+		**out = **in
+	}
+	if in.SpreadAcrossZones != nil {
+		in, out := &in.SpreadAcrossZones, &out.SpreadAcrossZones
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
@@ -978,6 +988,13 @@ func (in *SNIIngress) DeepCopyInto(out *SNIIngress) {
 		in, out := &in.Namespace, &out.Namespace
 		*out = new(string)
 		**out = **in
+	}
+	if in.AdditionalNamespaceLabels != nil {
+		in, out := &in.AdditionalNamespaceLabels, &out.AdditionalNamespaceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels

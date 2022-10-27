@@ -16,7 +16,9 @@ package botanist
 
 import (
 	"context"
+	"fmt"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/features"
 	gardenletfeatures "github.com/gardener/gardener/pkg/gardenlet/features"
@@ -30,12 +32,6 @@ import (
 )
 
 func (b *Botanist) newKubeAPIServiceServiceComponent(sniPhase component.Phase) component.DeployWaiter {
-	var sniServiceKey = client.ObjectKey{Name: *b.Config.SNI.Ingress.ServiceName, Namespace: *b.Config.SNI.Ingress.Namespace}
-	if b.ExposureClassHandler != nil {
-		sniServiceKey.Name = *b.ExposureClassHandler.SNI.Ingress.ServiceName
-		sniServiceKey.Namespace = *b.ExposureClassHandler.SNI.Ingress.Namespace
-	}
-
 	return kubeapiserverexposure.NewService(
 		b.Logger,
 		b.SeedClientSet.Client(),
@@ -43,8 +39,17 @@ func (b *Botanist) newKubeAPIServiceServiceComponent(sniPhase component.Phase) c
 			Annotations: b.getKubeAPIServerServiceAnnotations(sniPhase),
 			SNIPhase:    sniPhase,
 		},
-		client.ObjectKey{Name: v1beta1constants.DeploymentNameKubeAPIServer, Namespace: b.Shoot.SeedNamespace},
-		sniServiceKey,
+		func() client.ObjectKey {
+			return client.ObjectKey{Name: v1beta1constants.DeploymentNameKubeAPIServer, Namespace: b.Shoot.SeedNamespace}
+		},
+		func() client.ObjectKey {
+			var sniServiceKey = client.ObjectKey{Name: *b.Config.SNI.Ingress.ServiceName, Namespace: *b.Config.SNI.Ingress.Namespace}
+			if b.ExposureClassHandler != nil {
+				sniServiceKey.Name = *b.ExposureClassHandler.SNI.Ingress.ServiceName
+				sniServiceKey.Namespace = *b.ExposureClassHandler.SNI.Ingress.Namespace
+			}
+			return sniServiceKey
+		},
 		nil,
 		b.setAPIServerServiceClusterIP,
 		func(address string) {
@@ -162,4 +167,41 @@ func (b *Botanist) setAPIServerServiceClusterIP(clusterIP string) {
 			APIServerInternalDNSName: b.outOfClusterAPIServerFQDN(),
 		},
 	)
+}
+
+// AdaptSingleZoneExposureClassOnMultiZoneSeed adapts the exposure class if not set for single zone
+// control planes on multi-zone seeds. The corresponding exposure classes are expected to be already created.
+func (b *Botanist) AdaptSingleZoneExposureClassOnMultiZoneSeed(ctx context.Context) error {
+	if b.ExposureClassHandler != nil {
+		// Ignore shoots with exposure handler already set
+		return nil
+	}
+
+	if b.Seed.GetInfo().Spec.HighAvailability == nil || b.Seed.GetInfo().Spec.HighAvailability.FailureTolerance.Type == gardencorev1beta1.FailureToleranceTypeNode {
+		// Seed is only single zone
+		return nil
+	}
+
+	if b.Shoot.GetInfo().Spec.ControlPlane != nil && b.Shoot.GetInfo().Spec.ControlPlane.HighAvailability != nil && b.Shoot.GetInfo().Spec.ControlPlane.HighAvailability.FailureTolerance.Type == gardencorev1beta1.FailureToleranceTypeZone {
+		// Shoot is configured for multiple zones
+		return nil
+	}
+
+	zone := b.SeedNamespaceObject.Labels[v1beta1constants.ShootControlPlaneEnforceZone]
+
+	if zone == "" {
+		// No zone enforced on the shoot namespace
+		return nil
+	}
+
+	exposureClassName := "single-zone-exposure-" + zone
+
+	for _, handler := range b.Config.ExposureClassHandlers {
+		if handler.Name == exposureClassName {
+			b.ExposureClassHandler = &handler
+			return nil
+		}
+	}
+
+	return fmt.Errorf("exposure class \"%s\" not found", exposureClassName)
 }
