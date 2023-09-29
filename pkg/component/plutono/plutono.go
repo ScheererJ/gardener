@@ -257,19 +257,21 @@ func (p *plutono) computeResourcesData(ctx context.Context) ([]*corev1.ConfigMap
 	utilruntime.Must(kubernetesutils.MakeUnique(dataSourceConfigMap))
 
 	var (
-		deployment      *appsv1.Deployment
-		service         *corev1.Service
-		gateway         *istionetworkingv1beta1.Gateway
-		virtualService  *istionetworkingv1beta1.VirtualService
-		destinationRule *istionetworkingv1beta1.DestinationRule
+		deployment          *appsv1.Deployment
+		service             *corev1.Service
+		gateway             *istionetworkingv1beta1.Gateway
+		virtualService      *istionetworkingv1beta1.VirtualService
+		destinationRule     *istionetworkingv1beta1.DestinationRule
+		tlsSecretName       string
+		basicAuthSecretName string
 	)
 
-	gateway, virtualService, destinationRule, err = p.getIngressResources(ctx)
+	gateway, virtualService, destinationRule, tlsSecretName, basicAuthSecretName, err = p.getIngressResources(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	deployment = p.getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal)
+	deployment = p.getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal, tlsSecretName, basicAuthSecretName)
 	service = p.getService()
 
 	data, err := registry.AddAllAndSerialize(
@@ -560,7 +562,7 @@ func (p *plutono) getService() *corev1.Service {
 	return service
 }
 
-func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal *corev1.ConfigMap) *appsv1.Deployment {
+func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal *corev1.ConfigMap, tlsSecretName, basicAuthSecretName string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -586,14 +588,20 @@ func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboar
 							Image:           p.values.Image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
-								{Name: "PL_AUTH_ANONYMOUS_ENABLED", Value: "true"},
 								{Name: "PL_USERS_VIEWERS_CAN_EDIT", Value: "true"},
 								{Name: "PL_DATE_FORMATS_DEFAULT_TIMEZONE", Value: "UTC"},
-								{Name: "PL_AUTH_BASIC_ENABLED", Value: "false"},
-								{Name: "PL_AUTH_DISABLE_LOGIN_FORM", Value: "true"},
 								{Name: "PL_AUTH_DISABLE_SIGNOUT_MENU", Value: "true"},
 								{Name: "PL_ALERTING_ENABLED", Value: "false"},
 								{Name: "PL_SNAPSHOTS_EXTERNAL_ENABLED", Value: "false"},
+								{Name: "PL_SERVER_PROTOCOL", Value: "https"},
+								{Name: "PL_SERVER_CERT_KEY", Value: "/etc/plutono/tls/tls.key"},
+								{Name: "PL_SERVER_CERT_FILE", Value: "/etc/plutono/tls/tls.crt"},
+								{Name: "PL_SECURITY_COOKIE_SECURE", Value: "true"},
+								{Name: "PL_SECURITY_STRICT_TRANSPORT_SECURITY", Value: "true"},
+								{Name: "PL_SECURITY_ADMIN_PASSWORD", ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{Name: basicAuthSecretName}, Key: secrets.DataKeyPassword},
+								}},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -607,6 +615,10 @@ func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboar
 								{
 									Name:      "plutono-storage",
 									MountPath: "/var/lib/plutono",
+								},
+								{
+									Name:      "plutono-tls",
+									MountPath: "/etc/plutono/tls",
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -652,6 +664,14 @@ func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboar
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{
 									SizeLimit: utils.QuantityPtr(resource.MustParse("100Mi")),
+								},
+							},
+						},
+						{
+							Name: "plutono-tls",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: tlsSecretName,
 								},
 							},
 						},
@@ -722,7 +742,7 @@ func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboar
 	return deployment
 }
 
-func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1beta1.Gateway, *istionetworkingv1beta1.VirtualService, *istionetworkingv1beta1.DestinationRule, error) {
+func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1beta1.Gateway, *istionetworkingv1beta1.VirtualService, *istionetworkingv1beta1.DestinationRule, string, string, error) {
 	var (
 		credentialsSecretName = p.values.AuthSecretName
 		caName                = v1beta1constants.SecretNameCASeed
@@ -737,7 +757,7 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 		}, secretsmanager.Persist(), secretsmanager.Rotate(secretsmanager.InPlace),
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", "", err
 		}
 
 		credentialsSecretName = credentialsSecret.Name
@@ -754,7 +774,7 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 			secretsmanager.Rotate(secretsmanager.InPlace),
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", "", err
 		}
 
 		credentialsSecretName = credentialsSecret.Name
@@ -775,7 +795,7 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 			SkipPublishingCACertificate: true,
 		}, secretsmanager.SignedByCA(caName))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", "", err
 		}
 		ingressTLSSecretName = ingressTLSSecret.Name
 	}
@@ -787,7 +807,7 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 		},
 	}
 	if err := istio.GatewayWithTLSPassthrough(gateway, getLabels(), p.values.IstioIngressGatewayLabels, []string{p.values.IngressHost}, externalPort)(); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, "", "", err
 	}
 
 	virtualService := &istionetworkingv1beta1.VirtualService{
@@ -798,7 +818,7 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 	}
 	destinationHost := fmt.Sprintf("%s.%s.svc.%s", name, p.namespace, gardencorev1beta1.DefaultDomain)
 	if err := istio.VirtualServiceWithSNIMatch(virtualService, getLabels(), []string{p.values.IngressHost}, name, externalPort, destinationHost, port)(); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, "", "", err
 	}
 
 	destinationRule := &istionetworkingv1beta1.DestinationRule{
@@ -808,10 +828,10 @@ func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1be
 		},
 	}
 	if err := istio.DestinationRuleWithLocalityPreference(destinationRule, getLabels(), destinationHost)(); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, "", "", err
 	}
 
-	return gateway, virtualService, destinationRule, nil
+	return gateway, virtualService, destinationRule, ingressTLSSecretName, credentialsSecretName, nil
 }
 
 func getLabels() map[string]string {

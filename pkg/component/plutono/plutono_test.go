@@ -298,14 +298,16 @@ metadata:
 										Image:           values.Image,
 										ImagePullPolicy: corev1.PullIfNotPresent,
 										Env: []corev1.EnvVar{
-											{Name: "PL_AUTH_ANONYMOUS_ENABLED", Value: "true"},
 											{Name: "PL_USERS_VIEWERS_CAN_EDIT", Value: "true"},
 											{Name: "PL_DATE_FORMATS_DEFAULT_TIMEZONE", Value: "UTC"},
-											{Name: "PL_AUTH_BASIC_ENABLED", Value: "false"},
-											{Name: "PL_AUTH_DISABLE_LOGIN_FORM", Value: "true"},
 											{Name: "PL_AUTH_DISABLE_SIGNOUT_MENU", Value: "true"},
 											{Name: "PL_ALERTING_ENABLED", Value: "false"},
 											{Name: "PL_SNAPSHOTS_EXTERNAL_ENABLED", Value: "false"},
+											{Name: "PL_SERVER_PROTOCOL", Value: "https"},
+											{Name: "PL_SERVER_CERT_KEY", Value: "/etc/plutono/tls/tls.key"},
+											{Name: "PL_SERVER_CERT_FILE", Value: "/etc/plutono/tls/tls.crt"},
+											{Name: "PL_SECURITY_COOKIE_SECURE", Value: "true"},
+											{Name: "PL_SECURITY_STRICT_TRANSPORT_SECURITY", Value: "true"},
 										},
 										VolumeMounts: []corev1.VolumeMount{
 											{
@@ -319,6 +321,10 @@ metadata:
 											{
 												Name:      "plutono-storage",
 												MountPath: "/var/lib/plutono",
+											},
+											{
+												Name:      "plutono-tls",
+												MountPath: "/etc/plutono/tls",
 											},
 										},
 										Ports: []corev1.ContainerPort{
@@ -364,6 +370,14 @@ metadata:
 										VolumeSource: corev1.VolumeSource{
 											EmptyDir: &corev1.EmptyDirVolumeSource{
 												SizeLimit: utils.QuantityPtr(resource.MustParse("100Mi")),
+											},
+										},
+									},
+									{
+										Name: "plutono-tls",
+										VolumeSource: corev1.VolumeSource{
+											Secret: &corev1.SecretVolumeSource{
+												SecretName: "plutono-tls",
 											},
 										},
 									},
@@ -429,6 +443,18 @@ metadata:
 				} else {
 					deployment.Labels = utils.MergeStringMaps(deployment.Labels, map[string]string{"gardener.cloud/role": "monitoring"})
 				}
+
+				var authSecretName string
+				if !values.IsGardenCluster {
+					if values.ClusterType == comp.ClusterTypeShoot {
+						authSecretName = "observability-ingress-users-f27eb0bf"
+					} else {
+						authSecretName = "global-monitoring-secret"
+					}
+				} else {
+					authSecretName = "observability-ingress-0da36eb1"
+				}
+				deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "PL_SECURITY_ADMIN_PASSWORD", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: authSecretName}, Key: "password"}}})
 
 				return deployment
 			}
