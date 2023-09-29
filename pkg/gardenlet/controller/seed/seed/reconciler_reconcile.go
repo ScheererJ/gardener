@@ -392,7 +392,7 @@ func (r *Reconciler) runReconcileSeedFlow(
 	// setup for flow graph
 	var dnsRecord component.DeployMigrateWaiter
 
-	istio, err := defaultIstio(seedClient, chartRenderer, seed, &r.Config, seedIsGarden)
+	istio, istioDefaultLabels, err := defaultIstio(seedClient, chartRenderer, seed, &r.Config, seedIsGarden)
 	if err != nil {
 		return err
 	}
@@ -575,6 +575,7 @@ func (r *Reconciler) runReconcileSeedFlow(
 			seed.GetIngressFQDN("g-seed"),
 			globalMonitoringSecretSeed.Name,
 			wildCardSecretName,
+			istioDefaultLabels,
 		)
 		if err != nil {
 			return err

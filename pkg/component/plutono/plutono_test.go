@@ -76,8 +76,9 @@ var _ = Describe("Plutono", func() {
 		fakeSecretManager = fakesecretsmanager.New(c, namespace)
 
 		values = Values{
-			Image:    image,
-			Replicas: int32(1),
+			Image:                     image,
+			Replicas:                  int32(1),
+			IstioIngressGatewayLabels: map[string]string{"istio": "ingressgateway", "some": "label"},
 		}
 
 		managedResource = &resourcesv1alpha1.ManagedResource{
@@ -436,6 +437,9 @@ metadata:
 				out := `apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    networking.istio.io/exportTo: '*'
+    networking.resources.gardener.cloud/namespace-selectors: '[{"matchLabels":{"gardener.cloud/role":"istio-ingress"}}]'
   creationTimestamp: null
   labels:
     component: plutono
@@ -461,69 +465,91 @@ status:
 				return out
 			}
 
-			ingressYAMLFor = func(values Values) string {
-				out := `apiVersion: networking.k8s.io/v1
-kind: Ingress
+			gatewayYAMLFor = func(values Values) string {
+				out := `apiVersion: networking.istio.io/v1beta1
+kind: Gateway
 metadata:
-  annotations:
-    nginx.ingress.kubernetes.io/auth-realm: Authentication Required
-`
-				if !values.IsGardenCluster {
-					if values.ClusterType == comp.ClusterTypeShoot {
-						out += `    nginx.ingress.kubernetes.io/auth-secret: observability-ingress-users-f27eb0bf
-    nginx.ingress.kubernetes.io/auth-type: basic
-    nginx.ingress.kubernetes.io/configuration-snippet: proxy_set_header X-Scope-OrgID
-      operator;
-`
-					} else {
-						out += `    nginx.ingress.kubernetes.io/auth-secret: global-monitoring-secret
-    nginx.ingress.kubernetes.io/auth-type: basic
-`
-					}
-				} else {
-					out += `    nginx.ingress.kubernetes.io/auth-secret: observability-ingress-0da36eb1
-    nginx.ingress.kubernetes.io/auth-type: basic
-`
-				}
-				out += `  creationTimestamp: null
-`
-				if values.ClusterType == comp.ClusterTypeShoot {
-					out += `  labels:
+  creationTimestamp: null
+  labels:
     component: plutono
-`
-				}
-				out += `  name: plutono
+  name: plutono
   namespace: ` + namespace + `
 spec:
-  ingressClassName: nginx-ingress-gardener
-  rules:
-  - host: ` + values.IngressHost + `
-    http:
-      paths:
-      - backend:
-          service:
-            name: plutono
-            port:
-              number: 3000
-        path: /
-`
-				if values.IsGardenCluster {
-					out += `        pathType: ImplementationSpecific
-`
-				} else {
-					out += `        pathType: Prefix
-`
-				}
-
-				out += `  tls:
+  selector:
+    istio: ingressgateway
+    some: label
+  servers:
   - hosts:
     - ` + values.IngressHost + `
-    secretName: plutono-tls
-status:
-  loadBalancer: {}
+    port:
+      name: tls
+      number: 443
+      protocol: TLS
+    tls: {}
+status: {}
 `
 				return out
 			}
+
+			virtualServiceYAMLFor = func(values Values) string {
+				out := `apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  creationTimestamp: null
+  labels:
+    component: plutono
+  name: plutono
+  namespace: ` + namespace + `
+spec:
+  exportTo:
+  - '*'
+  gateways:
+  - plutono
+  hosts:
+  - ` + values.IngressHost + `
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - ` + values.IngressHost + `
+    route:
+    - destination:
+        host: plutono.` + namespace + `.svc.cluster.local
+        port:
+          number: 3000
+status: {}
+`
+				return out
+			}
+
+			destinationRule = `apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  creationTimestamp: null
+  labels:
+    component: plutono
+  name: plutono
+  namespace: ` + namespace + `
+spec:
+  exportTo:
+  - '*'
+  host: plutono.` + namespace + `.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 5000
+        tcpKeepalive:
+          interval: 75s
+          time: 7200s
+    loadBalancer:
+      localityLbSetting:
+        enabled: true
+        failoverPriority:
+        - topology.kubernetes.io/zone
+    outlierDetection: {}
+    tls: {}
+status: {}
+`
 		)
 
 		JustBeforeEach(func() {
@@ -559,7 +585,7 @@ status:
 			managedResourceSecret.Name = managedResource.Spec.SecretRefs[0].Name
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(managedResourceSecret), managedResourceSecret)).To(Succeed())
 			Expect(managedResourceSecret.Type).To(Equal(corev1.SecretTypeOpaque))
-			Expect(managedResourceSecret.Data).To(HaveLen(5))
+			Expect(managedResourceSecret.Data).To(HaveLen(7))
 			Expect(managedResourceSecret.Immutable).To(Equal(pointer.Bool(true)))
 			Expect(managedResourceSecret.Labels["resources.gardener.cloud/garbage-collectable-reference"]).To(Equal("true"))
 		})
@@ -581,12 +607,14 @@ status:
 					Expect(string(managedResourceSecret.Data["configmap__some-namespace__plutono-datasources-27f1a6c5.yaml"])).To(Equal(dataSourceConfigMapYAMLFor(values)))
 					testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-34cad47f"}, 22)
 					Expect(string(managedResourceSecret.Data["service__some-namespace__plutono.yaml"])).To(Equal(serviceYAMLFor(values)))
-					Expect(string(managedResourceSecret.Data["ingress__some-namespace__plutono.yaml"])).To(Equal(ingressYAMLFor(values)))
 					managedResourceDeployment, _, err := kubernetes.ShootCodec.UniversalDecoder().Decode(managedResourceSecret.Data["deployment__some-namespace__plutono.yaml"], nil, &appsv1.Deployment{})
 					Expect(err).ToNot(HaveOccurred())
 					deployment := deploymentYAMLFor(values, []string{"plutono-dashboards-34cad47f"})
 					utilruntime.Must(references.InjectAnnotations(deployment))
 					Expect(deployment).To(DeepEqual(managedResourceDeployment))
+					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
 				})
 			})
 
@@ -601,12 +629,14 @@ status:
 					testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-garden-40b40715"}, 16)
 					testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-global-c4e871d6"}, 7)
 					Expect(string(managedResourceSecret.Data["service__some-namespace__plutono.yaml"])).To(Equal(serviceYAMLFor(values)))
-					Expect(string(managedResourceSecret.Data["ingress__some-namespace__plutono.yaml"])).To(Equal(ingressYAMLFor(values)))
 					managedResourceDeployment, _, err := kubernetes.ShootCodec.UniversalDecoder().Decode(managedResourceSecret.Data["deployment__some-namespace__plutono.yaml"], nil, &appsv1.Deployment{})
 					Expect(err).ToNot(HaveOccurred())
 					deployment := deploymentYAMLFor(values, []string{"plutono-dashboards-garden-40b40715", "plutono-dashboards-global-c4e871d6"})
 					utilruntime.Must(references.InjectAnnotations(deployment))
 					Expect(deployment).To(DeepEqual(managedResourceDeployment))
+					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
 				})
 			})
 		})
@@ -622,12 +652,14 @@ status:
 				Expect(string(managedResourceSecret.Data["configmap__some-namespace__plutono-datasources-0fd41775.yaml"])).To(Equal(dataSourceConfigMapYAMLFor(values)))
 				testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-2858c729"}, 33)
 				Expect(string(managedResourceSecret.Data["service__some-namespace__plutono.yaml"])).To(Equal(serviceYAMLFor(values)))
-				Expect(string(managedResourceSecret.Data["ingress__some-namespace__plutono.yaml"])).To(Equal(ingressYAMLFor(values)))
 				managedResourceDeployment, _, err := kubernetes.ShootCodec.UniversalDecoder().Decode(managedResourceSecret.Data["deployment__some-namespace__plutono.yaml"], nil, &appsv1.Deployment{})
 				Expect(err).ToNot(HaveOccurred())
 				deployment := deploymentYAMLFor(values, []string{"plutono-dashboards-2858c729"})
 				utilruntime.Must(references.InjectAnnotations(deployment))
 				Expect(deployment).To(DeepEqual(managedResourceDeployment))
+				Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
+				Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
+				Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
 			})
 
 			Context("w/ include istio, node-local-dns, mcm, ha-vpn, vpa", func() {
@@ -644,12 +676,14 @@ status:
 					Expect(string(managedResourceSecret.Data["configmap__some-namespace__plutono-datasources-0fd41775.yaml"])).To(Equal(dataSourceConfigMapYAMLFor(values)))
 					testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-dc69f5b3"}, 38)
 					Expect(string(managedResourceSecret.Data["service__some-namespace__plutono.yaml"])).To(Equal(serviceYAMLFor(values)))
-					Expect(string(managedResourceSecret.Data["ingress__some-namespace__plutono.yaml"])).To(Equal(ingressYAMLFor(values)))
 					managedResourceDeployment, _, err := kubernetes.ShootCodec.UniversalDecoder().Decode(managedResourceSecret.Data["deployment__some-namespace__plutono.yaml"], nil, &appsv1.Deployment{})
 					Expect(err).ToNot(HaveOccurred())
 					deployment := deploymentYAMLFor(values, []string{"plutono-dashboards-dc69f5b3"})
 					utilruntime.Must(references.InjectAnnotations(deployment))
 					Expect(deployment).To(DeepEqual(managedResourceDeployment))
+					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
 				})
 			})
 
@@ -663,12 +697,14 @@ status:
 					Expect(string(managedResourceSecret.Data["configmap__some-namespace__plutono-datasources-0fd41775.yaml"])).To(Equal(dataSourceConfigMapYAMLFor(values)))
 					testDashboardConfigMap(ctx, c, types.NamespacedName{Namespace: namespace, Name: "plutono-dashboards-d557f751"}, 27)
 					Expect(string(managedResourceSecret.Data["service__some-namespace__plutono.yaml"])).To(Equal(serviceYAMLFor(values)))
-					Expect(string(managedResourceSecret.Data["ingress__some-namespace__plutono.yaml"])).To(Equal(ingressYAMLFor(values)))
 					managedResourceDeployment, _, err := kubernetes.ShootCodec.UniversalDecoder().Decode(managedResourceSecret.Data["deployment__some-namespace__plutono.yaml"], nil, &appsv1.Deployment{})
 					Expect(err).ToNot(HaveOccurred())
 					deployment := deploymentYAMLFor(values, []string{"plutono-dashboards-d557f751"})
 					utilruntime.Must(references.InjectAnnotations(deployment))
 					Expect(deployment).To(DeepEqual(managedResourceDeployment))
+					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
+					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
 				})
 			})
 		})

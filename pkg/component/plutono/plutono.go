@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	istionetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,15 +37,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	operatorv1alpha1 "github.com/gardener/gardener/pkg/apis/operator/v1alpha1"
+	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/component"
 	"github.com/gardener/gardener/pkg/component/logging/vali"
+	"github.com/gardener/gardener/pkg/component/plutono/constants"
 	"github.com/gardener/gardener/pkg/controllerutils"
 	"github.com/gardener/gardener/pkg/resourcemanager/controller/garbagecollector/references"
 	"github.com/gardener/gardener/pkg/utils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
+	"github.com/gardener/gardener/pkg/utils/istio"
 	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/gardener/gardener/pkg/utils/secrets"
@@ -58,7 +62,8 @@ const (
 
 	name                          = "plutono"
 	plutonoMountPathDashboards    = "/var/lib/plutono/dashboards"
-	port                          = 3000
+	externalPort                  = 443
+	port                          = constants.Port
 	ingressTLSCertificateValidity = 730 * 24 * time.Hour
 )
 
@@ -121,6 +126,8 @@ type Values struct {
 	VPNHighAvailabilityEnabled bool
 	// WildcardCertName is name of wildcard tls certificate which is issued for the seed's ingress domain.
 	WildcardCertName *string
+	// IstioIngressGatewayLabels are the labels for identifying the used istio ingress gateway.
+	IstioIngressGatewayLabels map[string]string
 }
 
 // New creates a new instance of DeployWaiter for plutono.
@@ -250,25 +257,29 @@ func (p *plutono) computeResourcesData(ctx context.Context) ([]*corev1.ConfigMap
 	utilruntime.Must(kubernetesutils.MakeUnique(dataSourceConfigMap))
 
 	var (
-		deployment *appsv1.Deployment
-		service    *corev1.Service
-		ingress    *networkingv1.Ingress
+		deployment      *appsv1.Deployment
+		service         *corev1.Service
+		gateway         *istionetworkingv1beta1.Gateway
+		virtualService  *istionetworkingv1beta1.VirtualService
+		destinationRule *istionetworkingv1beta1.DestinationRule
 	)
 
-	deployment = p.getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal)
-	service = p.getService()
-
-	ingress, err = p.getIngress(ctx)
+	gateway, virtualService, destinationRule, err = p.getIngressResources(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	deployment = p.getDeployment(providerConfigMap, dataSourceConfigMap, dashboardConfigMap, dashboardConfigMapGlobal)
+	service = p.getService()
 
 	data, err := registry.AddAllAndSerialize(
 		providerConfigMap,
 		dataSourceConfigMap,
 		deployment,
 		service,
-		ingress,
+		gateway,
+		virtualService,
+		destinationRule,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -510,9 +521,10 @@ func (p *plutono) getDashboardsConfigMap(ctx context.Context, suffix string) (*c
 func (p *plutono) getService() *corev1.Service {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: p.namespace,
-			Labels:    getLabels(),
+			Name:        name,
+			Namespace:   p.namespace,
+			Labels:      getLabels(),
+			Annotations: map[string]string{"networking.istio.io/exportTo": "*"},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
@@ -531,6 +543,19 @@ func (p *plutono) getService() *corev1.Service {
 	if p.values.ClusterType == component.ClusterTypeSeed {
 		service.Labels = utils.MergeStringMaps(service.Labels, map[string]string{v1beta1constants.LabelRole: v1beta1constants.LabelMonitoring})
 	}
+
+	namespaceSelectors := []metav1.LabelSelector{
+		{MatchLabels: map[string]string{v1beta1constants.GardenRole: v1beta1constants.GardenRoleIstioIngress}},
+	}
+
+	if strings.HasPrefix(p.namespace, v1beta1constants.TechnicalIDPrefix) {
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, resourcesv1alpha1.NetworkingPodLabelSelectorNamespaceAlias, v1beta1constants.LabelNetworkPolicyShootNamespaceAlias)
+
+		namespaceSelectors = append(namespaceSelectors,
+			metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: v1beta1constants.LabelExposureClassHandlerName, Operator: metav1.LabelSelectorOpExists}}},
+		)
+	}
+	utilruntime.Must(gardenerutils.InjectNetworkPolicyNamespaceSelectors(service, namespaceSelectors...))
 
 	return service
 }
@@ -697,15 +722,13 @@ func (p *plutono) getDeployment(providerConfigMap, dataSourceConfigMap, dashboar
 	return deployment
 }
 
-func (p *plutono) getIngress(ctx context.Context) (*networkingv1.Ingress, error) {
+func (p *plutono) getIngressResources(ctx context.Context) (*istionetworkingv1beta1.Gateway, *istionetworkingv1beta1.VirtualService, *istionetworkingv1beta1.DestinationRule, error) {
 	var (
-		pathType              = networkingv1.PathTypePrefix
 		credentialsSecretName = p.values.AuthSecretName
 		caName                = v1beta1constants.SecretNameCASeed
 	)
 
 	if p.values.IsGardenCluster {
-		pathType = networkingv1.PathTypeImplementationSpecific
 		credentialsSecret, err := p.secretsManager.Generate(ctx, &secrets.BasicAuthSecretConfig{
 			Name:           v1beta1constants.SecretNameObservabilityIngress,
 			Format:         secrets.BasicAuthFormatNormal,
@@ -714,7 +737,7 @@ func (p *plutono) getIngress(ctx context.Context) (*networkingv1.Ingress, error)
 		}, secretsmanager.Persist(), secretsmanager.Rotate(secretsmanager.InPlace),
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 
 		credentialsSecretName = credentialsSecret.Name
@@ -731,7 +754,7 @@ func (p *plutono) getIngress(ctx context.Context) (*networkingv1.Ingress, error)
 			secretsmanager.Rotate(secretsmanager.InPlace),
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 
 		credentialsSecretName = credentialsSecret.Name
@@ -752,59 +775,43 @@ func (p *plutono) getIngress(ctx context.Context) (*networkingv1.Ingress, error)
 			SkipPublishingCACertificate: true,
 		}, secretsmanager.SignedByCA(caName))
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		ingressTLSSecretName = ingressTLSSecret.Name
 	}
 
-	ingress := &networkingv1.Ingress{
+	gateway := &istionetworkingv1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: p.namespace,
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/auth-realm":  "Authentication Required",
-				"nginx.ingress.kubernetes.io/auth-secret": credentialsSecretName,
-				"nginx.ingress.kubernetes.io/auth-type":   "basic",
-			},
-		},
-		Spec: networkingv1.IngressSpec{
-			IngressClassName: pointer.String(v1beta1constants.SeedNginxIngressClass),
-			TLS: []networkingv1.IngressTLS{{
-				SecretName: ingressTLSSecretName,
-				Hosts:      []string{p.values.IngressHost},
-			}},
-			Rules: []networkingv1.IngressRule{{
-				Host: p.values.IngressHost,
-				IngressRuleValue: networkingv1.IngressRuleValue{
-					HTTP: &networkingv1.HTTPIngressRuleValue{
-						Paths: []networkingv1.HTTPIngressPath{
-							{
-								Backend: networkingv1.IngressBackend{
-									Service: &networkingv1.IngressServiceBackend{
-										Name: name,
-										Port: networkingv1.ServiceBackendPort{
-											Number: int32(port),
-										},
-									},
-								},
-								Path:     "/",
-								PathType: &pathType,
-							},
-						},
-					},
-				},
-			}},
 		},
 	}
-
-	if p.values.ClusterType == component.ClusterTypeShoot {
-		ingress.Labels = getLabels()
-		ingress.Annotations = utils.MergeStringMaps(ingress.Annotations, map[string]string{
-			"nginx.ingress.kubernetes.io/configuration-snippet": "proxy_set_header X-Scope-OrgID operator;",
-		})
+	if err := istio.GatewayWithTLSPassthrough(gateway, getLabels(), p.values.IstioIngressGatewayLabels, []string{p.values.IngressHost}, externalPort)(); err != nil {
+		return nil, nil, nil, err
 	}
 
-	return ingress, nil
+	virtualService := &istionetworkingv1beta1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: p.namespace,
+		},
+	}
+	destinationHost := fmt.Sprintf("%s.%s.svc.%s", name, p.namespace, gardencorev1beta1.DefaultDomain)
+	if err := istio.VirtualServiceWithSNIMatch(virtualService, getLabels(), []string{p.values.IngressHost}, name, externalPort, destinationHost, port)(); err != nil {
+		return nil, nil, nil, err
+	}
+
+	destinationRule := &istionetworkingv1beta1.DestinationRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: p.namespace,
+		},
+	}
+	if err := istio.DestinationRuleWithLocalityPreference(destinationRule, getLabels(), destinationHost)(); err != nil {
+		return nil, nil, nil, err
+	}
+
+	return gateway, virtualService, destinationRule, nil
 }
 
 func getLabels() map[string]string {

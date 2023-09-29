@@ -34,6 +34,7 @@ func NewPlutono(
 	gardenletManagesMCM, includeIstioDashboards, isWorkerless bool,
 	isGardenCluster, nodeLocalDNSEnabled, vpnHighAvailabilityEnabled, vpaEnabled bool,
 	wildcardCertName *string,
+	istioIngressGatewayLabels map[string]string,
 ) (plutono.Interface, error) {
 	plutonoImage, err := imagevector.ImageVector().FindImage(imagevector.ImageNamePlutono)
 	if err != nil {
@@ -59,6 +60,7 @@ func NewPlutono(
 			VPNHighAvailabilityEnabled: vpnHighAvailabilityEnabled,
 			VPAEnabled:                 vpaEnabled,
 			WildcardCertName:           wildcardCertName,
+			IstioIngressGatewayLabels:  istioIngressGatewayLabels,
 		},
 	), nil
 }
