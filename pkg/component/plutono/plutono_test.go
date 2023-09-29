@@ -65,6 +65,12 @@ var _ = Describe("Plutono", func() {
 		component         comp.DeployWaiter
 		fakeSecretManager secretsmanager.Interface
 		values            Values
+		dnsConfig         = &DNSConfig{
+			ProviderType:    "dns-type",
+			Value:           "1.2.3.4",
+			SecretName:      "dns-secret",
+			SecretNamespace: "dns-secret-namespace",
+		}
 
 		managedResource       *resourcesv1alpha1.ManagedResource
 		managedResourceSecret *corev1.Secret
@@ -79,6 +85,7 @@ var _ = Describe("Plutono", func() {
 			Image:                     image,
 			Replicas:                  int32(1),
 			IstioIngressGatewayLabels: map[string]string{"istio": "ingressgateway", "some": "label"},
+			DNSConfig:                 dnsConfig,
 		}
 
 		managedResource = &resourcesv1alpha1.ManagedResource{
@@ -576,6 +583,29 @@ spec:
     tls: {}
 status: {}
 `
+
+			dnsRecordYAMLFor = func(values Values) string {
+				out := `apiVersion: extensions.gardener.cloud/v1alpha1
+kind: DNSRecord
+metadata:
+  annotations:
+    confirmation.gardener.cloud/deletion: "true"
+  creationTimestamp: null
+  name: plutono
+  namespace: ` + namespace + `
+spec:
+  name: ` + values.IngressHost + `
+  recordType: A
+  secretRef:
+    name: ` + values.DNSConfig.SecretName + `
+    namespace: ` + values.DNSConfig.SecretNamespace + `
+  type: dns-type
+  values:
+  - ` + values.DNSConfig.Value + `
+status: {}
+`
+				return out
+			}
 		)
 
 		JustBeforeEach(func() {
@@ -611,7 +641,11 @@ status: {}
 			managedResourceSecret.Name = managedResource.Spec.SecretRefs[0].Name
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(managedResourceSecret), managedResourceSecret)).To(Succeed())
 			Expect(managedResourceSecret.Type).To(Equal(corev1.SecretTypeOpaque))
-			Expect(managedResourceSecret.Data).To(HaveLen(7))
+			if values.IsGardenCluster {
+				Expect(managedResourceSecret.Data).To(HaveLen(7))
+			} else {
+				Expect(managedResourceSecret.Data).To(HaveLen(8))
+			}
 			Expect(managedResourceSecret.Immutable).To(Equal(pointer.Bool(true)))
 			Expect(managedResourceSecret.Labels["resources.gardener.cloud/garbage-collectable-reference"]).To(Equal("true"))
 		})
@@ -641,12 +675,14 @@ status: {}
 					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
+					Expect(string(managedResourceSecret.Data["dnsrecord__some-namespace__plutono.yaml"])).To(Equal(dnsRecordYAMLFor(values)))
 				})
 			})
 
 			Context("Cluster is garden cluster", func() {
 				BeforeEach(func() {
 					values.IsGardenCluster = true
+					values.DNSConfig = nil
 				})
 
 				It("should succesfully deploy all resources", func() {
@@ -686,6 +722,7 @@ status: {}
 				Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
 				Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
 				Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
+				Expect(string(managedResourceSecret.Data["dnsrecord__some-namespace__plutono.yaml"])).To(Equal(dnsRecordYAMLFor(values)))
 			})
 
 			Context("w/ include istio, node-local-dns, mcm, ha-vpn, vpa", func() {
@@ -710,6 +747,7 @@ status: {}
 					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
+					Expect(string(managedResourceSecret.Data["dnsrecord__some-namespace__plutono.yaml"])).To(Equal(dnsRecordYAMLFor(values)))
 				})
 			})
 
@@ -731,6 +769,7 @@ status: {}
 					Expect(string(managedResourceSecret.Data["gateway__some-namespace__plutono.yaml"])).To(Equal(gatewayYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["virtualservice__some-namespace__plutono.yaml"])).To(Equal(virtualServiceYAMLFor(values)))
 					Expect(string(managedResourceSecret.Data["destinationrule__some-namespace__plutono.yaml"])).To(Equal(destinationRule))
+					Expect(string(managedResourceSecret.Data["dnsrecord__some-namespace__plutono.yaml"])).To(Equal(dnsRecordYAMLFor(values)))
 				})
 			})
 		})

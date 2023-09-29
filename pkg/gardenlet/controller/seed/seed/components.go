@@ -80,6 +80,7 @@ func defaultIstio(
 ) (
 	component.DeployWaiter,
 	map[string]string,
+	string,
 	error,
 ) {
 	var (
@@ -112,7 +113,7 @@ func defaultIstio(
 		seedObj.Spec.Provider.Zones,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	// Automatically create ingress gateways for single-zone control planes on multi-zonal seeds
@@ -127,7 +128,7 @@ func defaultIstio(
 				nil,
 				&zone,
 			); err != nil {
-				return nil, nil, err
+				return nil, nil, "", err
 			}
 		}
 	}
@@ -144,7 +145,7 @@ func defaultIstio(
 			handler.SNI.Ingress.ServiceExternalIP,
 			nil,
 		); err != nil {
-			return nil, nil, err
+			return nil, nil, "", err
 		}
 
 		// Automatically create ingress gateways for single-zone control planes on multi-zonal seeds
@@ -160,13 +161,13 @@ func defaultIstio(
 					nil,
 					&zone,
 				); err != nil {
-					return nil, nil, err
+					return nil, nil, "", err
 				}
 			}
 		}
 	}
 
-	return istioDeployer, labels, nil
+	return istioDeployer, labels, istioDeployer.GetValues().IngressGateway[0].Namespace, nil
 }
 
 func defaultDependencyWatchdogs(
