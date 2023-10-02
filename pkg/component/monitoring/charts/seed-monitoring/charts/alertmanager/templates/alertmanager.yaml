@@ -74,6 +74,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --config.file=/etc/alertmanager/config/alertmanager.yaml
+        - --web.config.file=/etc/alertmanager/config/web.yaml
         - --cluster.listen-address=$(POD_IP):6783
         - --cluster.advertise-address=$(POD_IP):6783
         - --web.listen-address=:9093
@@ -105,13 +106,19 @@ spec:
           httpGet:
             path: /api/v1/status
             port: metrics
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP }}
           failureThreshold: 10
         readinessProbe:
           httpGet:
             path: /api/v1/status
             port: metrics
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP }}
           periodSeconds: 5
           timeoutSeconds: 3
           initialDelaySeconds: 3
@@ -129,11 +136,14 @@ spec:
         - mountPath: /var/alertmanager/data
           name: alertmanager-db
           subPath: alertmanager-
+        - mountPath: /etc/alertmanager/tls
+          name: tls
+          readOnly: true
       - name: alertmanager-config-reloader
         image: {{ index .Values.images "configmap-reloader" }}
         imagePullPolicy: IfNotPresent
         args:
-        - --reload-url=http://localhost:9093/-/reload
+        - --reload-url=https://{{ b64dec (required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP) }}@localhost:9093/-/reload
         - --watched-dir=/etc/alertmanager/config
         resources:
           requests:
@@ -150,6 +160,9 @@ spec:
       - name: config
         secret:
           secretName: alertmanager-config
+      - name: tls
+        secret:
+          secretName: {{ required ".Values.ingress.tlsSecretName is required" .Values.ingress.tlsSecretName }}
   volumeClaimTemplates:
   - metadata:
       name: alertmanager-db

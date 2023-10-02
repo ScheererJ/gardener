@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
 	istionetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -397,20 +398,23 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 			alertManagerIngressTLSSecretName = ingressTLSSecret.Name
 		}
 
+		basicAuthPassword, err := bcrypt.GenerateFromPassword(credentialsSecret.Data[corev1.BasicAuthPasswordKey], bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+
 		alertManagerValues := map[string]interface{}{
 			"images": map[string]string{
 				"alertmanager":       m.values.ImageAlertmanager,
 				"configmap-reloader": m.values.ImageConfigmapReloader,
 			},
 			"ingress": map[string]interface{}{
-				"class":          v1beta1constants.SeedNginxIngressClass,
-				"authSecretName": credentialsSecret.Name,
-				"hosts": []map[string]interface{}{
-					{
-						"hostName":   m.values.IngressHostAlertmanager,
-						"secretName": alertManagerIngressTLSSecretName,
-					},
-				},
+				"authSecretName":     credentialsSecret.Name,
+				"authSecretUser":     credentialsSecret.Data[corev1.BasicAuthUsernameKey],
+				"authSecretPassword": basicAuthPassword,
+				"authSecretHTTP":     utils.EncodeBase64([]byte(fmt.Sprintf("%s:%s", credentialsSecret.Data[corev1.BasicAuthUsernameKey], credentialsSecret.Data[corev1.BasicAuthPasswordKey]))),
+				"host":               m.values.IngressHostAlertmanager,
+				"tlsSecretName":      alertManagerIngressTLSSecretName,
 			},
 			"replicas":     m.values.Replicas,
 			"storage":      m.values.StorageCapacityAlertmanager,

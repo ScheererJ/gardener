@@ -3,12 +3,13 @@ images:
   configmap-reloader: image-repository:image-tag
 
 ingress:
-  class: nginx
-  hosts:
-    - hostName: a.seed-1.example.com
-      secretName: plutono-tls
+  host: a.seed-1.example.com
+  tlsSecretName: alertmanager-tls
   # admin : admin base64 encoded
   authSecretName: auth-secret-name
+  authSecretUser: admin
+  #authSecretPassword: the-password
+  #authSecretHTTP: user:password base64 encoded
 
 emailConfigs: []
 replicas: 1

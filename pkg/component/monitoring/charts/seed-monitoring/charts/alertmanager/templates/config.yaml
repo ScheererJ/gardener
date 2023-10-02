@@ -5,3 +5,4 @@ metadata:
   namespace: {{.Release.Namespace}}
 data:
   alertmanager.yaml: {{ include "config" . | b64enc }}
+  web.yaml: {{ include "web-config" . | b64enc }}

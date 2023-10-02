@@ -80,3 +80,16 @@ receivers:
 {{ toYaml .Values.emailConfigs | indent 2 }}
 {{- end }}
 {{- end -}}
+
+{{- define "web-config" -}}
+tls_server_config:
+  # Certificate and key files for server to use to authenticate to client.
+  cert_file: /etc/alertmanager/tls/tls.crt
+  key_file: /etc/alertmanager/tls/tls.key
+
+# Usernames and hashed passwords that have full access to the web
+# server via basic authentication. If empty, no basic authentication is
+# required. Passwords are hashed with bcrypt.
+basic_auth_users:
+  {{ b64dec (required ".Values.ingress.authSecretUser is required" .Values.ingress.authSecretUser) }}: {{ b64dec (required ".Values.ingress.authSecretPassword is required" .Values.ingress.authSecretPassword) }}
+{{- end -}}
