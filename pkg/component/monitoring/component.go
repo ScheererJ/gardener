@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	istionetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -32,19 +33,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/component"
 	"github.com/gardener/gardener/pkg/component/etcd"
+	"github.com/gardener/gardener/pkg/component/monitoring/constants"
 	"github.com/gardener/gardener/pkg/controllerutils"
 	gardenletconfig "github.com/gardener/gardener/pkg/gardenlet/apis/config"
 	"github.com/gardener/gardener/pkg/utils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
+	"github.com/gardener/gardener/pkg/utils/istio"
 	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 	secretsutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
+)
+
+const (
+	managedResourceNamePrometheus   = "shoot-core-prometheus"
+	managedResourceNameAlertManager = alertmanagerName
+
+	externalPort = 443
 )
 
 var (
@@ -55,8 +66,6 @@ var (
 	//go:embed charts/seed-monitoring/charts/core
 	chartCore     embed.FS
 	chartPathCore = filepath.Join("charts", "seed-monitoring", "charts", "core")
-
-	managedResourceNamePrometheus = "shoot-core-prometheus"
 )
 
 // Interface contains functions for a monitoring deployer.
@@ -136,6 +145,8 @@ type Values struct {
 	TargetProviderType string
 	// WildcardCertName is name of wildcard tls certificate which is issued for the seed's ingress domain.
 	WildcardCertName *string
+	// IstioIngressGatewayLabels are the labels for identifying the used istio ingress gateway.
+	IstioIngressGatewayLabels map[string]string
 }
 
 // New creates a new instance of Interface for the monitoring components.
@@ -406,6 +417,60 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 			"emailConfigs": emailConfigs,
 		}
 
+		gateway := &istionetworkingv1beta1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      alertmanagerName,
+				Namespace: m.namespace,
+			},
+		}
+		if err := istio.GatewayWithTLSPassthrough(gateway, getAlertManagerLabels(), m.values.IstioIngressGatewayLabels, []string{m.values.IngressHostAlertmanager}, externalPort)(); err != nil {
+			return err
+		}
+
+		virtualService := &istionetworkingv1beta1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      alertmanagerName,
+				Namespace: m.namespace,
+			},
+		}
+		destinationHost := fmt.Sprintf("%s-client.%s.svc.%s", alertmanagerName, m.namespace, gardencorev1beta1.DefaultDomain)
+		if err := istio.VirtualServiceWithSNIMatch(virtualService, getAlertManagerLabels(), []string{m.values.IngressHostAlertmanager}, alertmanagerName, externalPort, destinationHost, constants.AlertManagerPort)(); err != nil {
+			return err
+		}
+
+		destinationRule := &istionetworkingv1beta1.DestinationRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      alertmanagerName,
+				Namespace: m.namespace,
+			},
+		}
+		if err := istio.DestinationRuleWithLocalityPreference(destinationRule, getAlertManagerLabels(), destinationHost)(); err != nil {
+			return err
+		}
+
+		registry := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer)
+		data, err := registry.AddAllAndSerialize(
+			gateway,
+			virtualService,
+			destinationRule,
+		)
+		if err != nil {
+			return err
+		}
+		if err := managedresources.CreateForSeed(ctx, m.client, m.namespace, managedResourceNameAlertManager, false, data); err != nil {
+			return err
+		}
+
+		// TODO(scheererj): Remove with next release after all ingress objects have been deleted.
+		if err := kubernetesutils.DeleteObjects(ctx, m.client, &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      alertmanagerName,
+				Namespace: m.namespace,
+			},
+		}); err != nil {
+			return err
+		}
+
 		return m.chartApplier.ApplyFromEmbeddedFS(ctx, chartAlertmanager, chartPathAlertmanager, m.namespace, "alertmanager", kubernetes.Values(alertManagerValues))
 	}
 
@@ -414,6 +479,10 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 
 func (m *monitoring) Destroy(ctx context.Context) error {
 	if err := deleteAlertmanager(ctx, m.client, m.namespace); err != nil {
+		return err
+	}
+
+	if err := managedresources.DeleteForSeed(ctx, m.client, m.namespace, managedResourceNameAlertManager); err != nil {
 		return err
 	}
 
@@ -677,4 +746,11 @@ func (m *monitoring) getAlertingRulesAndScrapeConfigs(ctx context.Context) (aler
 	}
 
 	return
+}
+
+func getAlertManagerLabels() map[string]string {
+	return map[string]string{
+		"component":                          alertmanagerName,
+		gardencorev1beta1constants.LabelRole: gardencorev1beta1constants.GardenRoleMonitoring,
+	}
 }

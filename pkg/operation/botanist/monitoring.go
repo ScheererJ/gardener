@@ -80,6 +80,7 @@ func (b *Botanist) DefaultMonitoring() (monitoring.Interface, error) {
 		TargetName:                   b.Shoot.GetInfo().Name,
 		TargetProviderType:           b.Shoot.GetInfo().Spec.Provider.Type,
 		WildcardCertName:             nil,
+		IstioIngressGatewayLabels:    b.DefaultIstioLabels(),
 	}
 
 	if b.Shoot.Networks != nil {
