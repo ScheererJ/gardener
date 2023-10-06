@@ -21,7 +21,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	istionetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +31,8 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/component"
@@ -37,9 +41,16 @@ import (
 	"github.com/gardener/gardener/pkg/component/istio"
 	"github.com/gardener/gardener/pkg/component/kubestatemetrics"
 	"github.com/gardener/gardener/pkg/utils"
+	istioutils "github.com/gardener/gardener/pkg/utils/istio"
 	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"github.com/gardener/gardener/pkg/utils/managedresources"
 	secretsutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
+)
+
+const (
+	aggregatePrometheusName                = "aggregate-" + prometheusName
+	managedResourceNameAggregatePrometheus = aggregatePrometheusName
 )
 
 var (
@@ -76,6 +87,8 @@ type ValuesBootstrap struct {
 	StorageCapacityAggregatePrometheus string
 	// WildcardCertName is name of wildcard tls certificate which is issued for the seed's ingress domain.
 	WildcardCertName *string
+	// IstioIngressGatewayLabels are the labels for identifying the used istio ingress gateway.
+	IstioIngressGatewayLabels map[string]string
 }
 
 // NewBootstrap creates a new instance of Deployer for the monitoring components.
@@ -269,9 +282,70 @@ func (b *bootstrapper) Deploy(ctx context.Context) error {
 		},
 	})
 
+	gateway := &istionetworkingv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      aggregatePrometheusName,
+			Namespace: b.namespace,
+		},
+	}
+	if err := istioutils.GatewayWithTLSPassthrough(gateway, getAggregatePrometheusLabels(), b.values.IstioIngressGatewayLabels, []string{b.values.IngressHost}, externalPort)(); err != nil {
+		return err
+	}
+
+	virtualService := &istionetworkingv1beta1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      aggregatePrometheusName,
+			Namespace: b.namespace,
+		},
+	}
+	destinationHost := fmt.Sprintf("%s-web.%s.svc.%s", aggregatePrometheusName, b.namespace, gardencorev1beta1.DefaultDomain)
+	if err := istioutils.VirtualServiceWithSNIMatch(virtualService, getAggregatePrometheusLabels(), []string{b.values.IngressHost}, aggregatePrometheusName, externalPort, destinationHost, prometheusServicePort)(); err != nil {
+		return err
+	}
+
+	destinationRule := &istionetworkingv1beta1.DestinationRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      aggregatePrometheusName,
+			Namespace: b.namespace,
+		},
+	}
+	if err := istioutils.DestinationRuleWithLocalityPreference(destinationRule, getAggregatePrometheusLabels(), destinationHost)(); err != nil {
+		return err
+	}
+
+	registry := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer)
+	data, err := registry.AddAllAndSerialize(
+		gateway,
+		virtualService,
+		destinationRule,
+	)
+	if err != nil {
+		return err
+	}
+	if err := managedresources.CreateForSeed(ctx, b.client, b.namespace, managedResourceNameAggregatePrometheus, false, data); err != nil {
+		return err
+	}
+
+	// TODO(scheererj): Remove with next release after all ingress objects have been deleted.
+	if err := kubernetesutils.DeleteObjects(ctx, b.client, &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      aggregatePrometheusName,
+			Namespace: b.namespace,
+		},
+	}); err != nil {
+		return err
+	}
+
 	return b.chartApplier.ApplyFromEmbeddedFS(ctx, chartBootstrap, chartPathBootstrap, b.namespace, "monitoring", values, applierOptions)
 }
 
 func (b *bootstrapper) Destroy(ctx context.Context) error {
 	return nil
+}
+
+func getAggregatePrometheusLabels() map[string]string {
+	return map[string]string{
+		gardencorev1beta1constants.LabelApp:  aggregatePrometheusName,
+		gardencorev1beta1constants.LabelRole: gardencorev1beta1constants.GardenRoleMonitoring,
+	}
 }

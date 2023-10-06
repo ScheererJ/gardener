@@ -416,6 +416,7 @@ func (r *Reconciler) runReconcileSeedFlow(
 		hvpaEnabled,
 		seed.GetIngressFQDN("p-seed"),
 		wildCardSecretName,
+		istioDefaultLabels,
 	)
 	if err != nil {
 		return err

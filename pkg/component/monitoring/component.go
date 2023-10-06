@@ -55,10 +55,12 @@ import (
 )
 
 const (
-	managedResourceNamePrometheus   = "shoot-core-prometheus"
-	managedResourceNameAlertManager = alertmanagerName
+	managedResourceNamePrometheus     = "shoot-core-prometheus"
+	managedResourceNameSeedPrometheus = prometheusName
+	managedResourceNameAlertManager   = alertmanagerName
 
-	externalPort = 443
+	externalPort          = 443
+	prometheusServicePort = 80
 )
 
 var (
@@ -368,6 +370,60 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 		"prometheus": prometheusConfig,
 	}
 
+	gateway := &istionetworkingv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prometheusName,
+			Namespace: m.namespace,
+		},
+	}
+	if err := istio.GatewayWithTLSPassthrough(gateway, getPrometheusLabels(), m.values.IstioIngressGatewayLabels, []string{m.values.IngressHostPrometheus}, externalPort)(); err != nil {
+		return err
+	}
+
+	virtualService := &istionetworkingv1beta1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prometheusName,
+			Namespace: m.namespace,
+		},
+	}
+	destinationHost := fmt.Sprintf("%s-web.%s.svc.%s", prometheusName, m.namespace, gardencorev1beta1.DefaultDomain)
+	if err := istio.VirtualServiceWithSNIMatch(virtualService, getPrometheusLabels(), []string{m.values.IngressHostPrometheus}, prometheusName, externalPort, destinationHost, prometheusServicePort)(); err != nil {
+		return err
+	}
+
+	destinationRule := &istionetworkingv1beta1.DestinationRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prometheusName,
+			Namespace: m.namespace,
+		},
+	}
+	if err := istio.DestinationRuleWithLocalityPreference(destinationRule, getPrometheusLabels(), destinationHost)(); err != nil {
+		return err
+	}
+
+	registry := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer)
+	data, err := registry.AddAllAndSerialize(
+		gateway,
+		virtualService,
+		destinationRule,
+	)
+	if err != nil {
+		return err
+	}
+	if err := managedresources.CreateForSeed(ctx, m.client, m.namespace, managedResourceNameSeedPrometheus, false, data); err != nil {
+		return err
+	}
+
+	// TODO(scheererj): Remove with next release after all ingress objects have been deleted.
+	if err := kubernetesutils.DeleteObjects(ctx, m.client, &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prometheusName,
+			Namespace: m.namespace,
+		},
+	}); err != nil {
+		return err
+	}
+
 	if err := m.chartApplier.ApplyFromEmbeddedFS(ctx, chartCore, chartPathCore, m.namespace, "core", kubernetes.Values(coreValues)); err != nil {
 		return err
 	}
@@ -514,6 +570,10 @@ func (m *monitoring) Destroy(ctx context.Context) error {
 	}
 
 	if err := managedresources.DeleteForSeed(ctx, m.client, m.namespace, managedResourceNameAlertManager); err != nil {
+		return err
+	}
+
+	if err := managedresources.DeleteForSeed(ctx, m.client, m.namespace, managedResourceNameSeedPrometheus); err != nil {
 		return err
 	}
 
@@ -809,6 +869,13 @@ func (m *monitoring) getDNSRecord(name, host string) *extensionsv1alpha1.DNSReco
 func getAlertManagerLabels() map[string]string {
 	return map[string]string{
 		"component":                          alertmanagerName,
+		gardencorev1beta1constants.LabelRole: gardencorev1beta1constants.GardenRoleMonitoring,
+	}
+}
+
+func getPrometheusLabels() map[string]string {
+	return map[string]string{
+		gardencorev1beta1constants.LabelApp:  prometheusName,
 		gardencorev1beta1constants.LabelRole: gardencorev1beta1constants.GardenRoleMonitoring,
 	}
 }
