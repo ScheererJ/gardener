@@ -12,12 +12,13 @@ images:
   blackbox-exporter: image-repository:image-tag
 
 ingress:
-  class: nginx
-  hosts:
-  - hostName: p.seed-1.example.com
-    secretName: prometheus-tls
+  host: p.seed-1.example.com
+  tlsSecretName: prometheus-tls
   # admin : admin base64 encoded
   authSecretName: auth-secret-name
+  authSecretUser: admin
+  #authSecretPassword: the-password
+  #authSecretHTTP: user:password base64 encoded
 
 kubernetesVersion: 1.24.4
 secretNameClusterCA: ca

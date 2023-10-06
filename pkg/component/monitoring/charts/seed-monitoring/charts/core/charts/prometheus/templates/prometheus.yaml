@@ -79,6 +79,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --config.file=/etc/prometheus/config/prometheus.yaml
+        - --web.config.file=/etc/prometheus/config/web.yaml
         - --storage.tsdb.path=/var/prometheus/data
         - --storage.tsdb.no-lockfile
         - --storage.tsdb.retention.time=30d
@@ -96,7 +97,10 @@ spec:
           httpGet:
             path: /-/healthy
             port: {{ .Values.port }}
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP }}
           failureThreshold: 60
           periodSeconds: 5
           successThreshold: 1
@@ -105,7 +109,10 @@ spec:
           httpGet:
             path: /-/ready
             port: {{ .Values.port }}
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP }}
           failureThreshold: 120
           periodSeconds: 5
           successThreshold: 1
@@ -127,6 +134,9 @@ spec:
           name: etcd-client-tls
         - mountPath: /etc/prometheus/config
           name: config
+          readOnly: true
+        - mountPath: /etc/prometheus/tls
+          name: tls
           readOnly: true
         - mountPath: /etc/prometheus/rules
           name: rules
@@ -170,7 +180,7 @@ spec:
         image: {{ index .Values.images "configmap-reloader" }}
         imagePullPolicy: IfNotPresent
         args:
-        - --reload-url=http://localhost:{{ .Values.port }}/-/reload
+        - --reload-url=https://{{ b64dec (required ".Values.ingress.authSecretHTTP is required" .Values.ingress.authSecretHTTP) }}@localhost:{{ .Values.port }}/-/reload
         - --watched-dir=/etc/prometheus/config
         - --watched-dir=/etc/prometheus/rules
         resources:
@@ -192,6 +202,9 @@ spec:
         configMap:
           defaultMode: 420
           name: prometheus-config
+      - name: tls
+        secret:
+          secretName: {{ required ".Values.ingress.tlsSecretName is required" .Values.ingress.tlsSecretName }}
       - name: rules
         configMap:
           defaultMode: 420

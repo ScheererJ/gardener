@@ -251,6 +251,11 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 		return fmt.Errorf("secret %q not found", etcd.SecretNameClient)
 	}
 
+	basicAuthPassword, err := bcrypt.GenerateFromPassword(credentialsSecret.Data[corev1.BasicAuthPasswordKey], bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
 	var (
 		networks         = map[string]interface{}{}
 		prometheusConfig = map[string]interface{}{
@@ -268,14 +273,12 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 			},
 			"gardenletManagesMCM": m.values.GardenletManagesMCM,
 			"ingress": map[string]interface{}{
-				"class":          v1beta1constants.SeedNginxIngressClass,
-				"authSecretName": credentialsSecret.Name,
-				"hosts": []map[string]interface{}{
-					{
-						"hostName":   m.values.IngressHostPrometheus,
-						"secretName": ingressTLSSecretName,
-					},
-				},
+				"authSecretName":     credentialsSecret.Name,
+				"authSecretUser":     credentialsSecret.Data[corev1.BasicAuthUsernameKey],
+				"authSecretPassword": basicAuthPassword,
+				"authSecretHTTP":     utils.EncodeBase64([]byte(fmt.Sprintf("%s:%s", credentialsSecret.Data[corev1.BasicAuthUsernameKey], credentialsSecret.Data[corev1.BasicAuthPasswordKey]))),
+				"host":               m.values.IngressHostPrometheus,
+				"tlsSecretName":      ingressTLSSecretName,
 			},
 			"namespace": map[string]interface{}{
 				"uid": m.values.NamespaceUID,
@@ -470,11 +473,6 @@ func (m *monitoring) Deploy(ctx context.Context) error {
 				return err
 			}
 			alertManagerIngressTLSSecretName = ingressTLSSecret.Name
-		}
-
-		basicAuthPassword, err := bcrypt.GenerateFromPassword(credentialsSecret.Data[corev1.BasicAuthPasswordKey], bcrypt.DefaultCost)
-		if err != nil {
-			return err
 		}
 
 		alertManagerValues := map[string]interface{}{

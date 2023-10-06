@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
 	istionetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -246,9 +247,13 @@ func (b *bootstrapper) Deploy(ctx context.Context) error {
 		ingressTLSSecretName = ingressTLSSecret.Name
 	}
 
+	basicAuthPassword, err := bcrypt.GenerateFromPassword(b.values.GlobalMonitoringSecret.Data[corev1.BasicAuthPasswordKey], bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
 	values := kubernetes.Values(map[string]interface{}{
 		"global": map[string]interface{}{
-			"ingressClass": v1beta1constants.SeedNginxIngressClass,
 			"images": map[string]string{
 				"alertmanager":       b.values.ImageAlertmanager,
 				"alpine":             b.values.ImageAlpine,
@@ -263,11 +268,17 @@ func (b *bootstrapper) Deploy(ctx context.Context) error {
 			"additionalCAdvisorScrapeConfigMetricRelabelConfigs": centralCAdvisorScrapeConfigMetricRelabelConfigs.String(),
 		},
 		"aggregatePrometheus": map[string]interface{}{
-			"resources":               monitoringResources["aggregate-prometheus"],
-			"storage":                 b.values.StorageCapacityAggregatePrometheus,
-			"seed":                    b.values.SeedName,
-			"hostName":                b.values.IngressHost,
-			"secretName":              ingressTLSSecretName,
+			"resources": monitoringResources["aggregate-prometheus"],
+			"storage":   b.values.StorageCapacityAggregatePrometheus,
+			"seed":      b.values.SeedName,
+			"ingress": map[string]interface{}{
+				"authSecretName":     b.values.GlobalMonitoringSecret.Name,
+				"authSecretUser":     b.values.GlobalMonitoringSecret.Data[corev1.BasicAuthUsernameKey],
+				"authSecretPassword": basicAuthPassword,
+				"authSecretHTTP":     utils.EncodeBase64([]byte(fmt.Sprintf("%s:%s", b.values.GlobalMonitoringSecret.Data[corev1.BasicAuthUsernameKey], b.values.GlobalMonitoringSecret.Data[corev1.BasicAuthPasswordKey]))),
+				"host":               b.values.IngressHost,
+				"tlsSecretName":      ingressTLSSecretName,
+			},
 			"additionalScrapeConfigs": aggregateScrapeConfigs.String(),
 		},
 		"alertmanager": alertManagerConfig,
@@ -276,9 +287,6 @@ func (b *bootstrapper) Deploy(ctx context.Context) error {
 		},
 		"istio": map[string]interface{}{
 			"enabled": true,
-		},
-		"ingress": map[string]interface{}{
-			"authSecretName": b.values.GlobalMonitoringSecret.Name,
 		},
 	})
 

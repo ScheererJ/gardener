@@ -35,6 +35,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
           - --config.file=/etc/prometheus/config/prometheus.yaml
+          - --web.config.file=/etc/prometheus/config/web.yaml
           - --storage.tsdb.path=/var/prometheus/data
           - --storage.tsdb.no-lockfile
           - --storage.tsdb.retention.time=30d
@@ -51,7 +52,10 @@ spec:
           httpGet:
             path: /-/healthy
             port: {{ .Values.aggregatePrometheus.port }}
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.aggregatePrometheus.ingress.authSecretHTTP is required" .Values.aggregatePrometheus.ingress.authSecretHTTP }}
           failureThreshold: 60
           periodSeconds: 5
           successThreshold: 1
@@ -60,7 +64,10 @@ spec:
           httpGet:
             path: /-/ready
             port: {{ .Values.aggregatePrometheus.port }}
-            scheme: HTTP
+            scheme: HTTPS
+            httpHeaders:
+            - name: Authorization
+              value: Basic {{ required ".Values.aggregatePrometheus.ingress.authSecretHTTP is required" .Values.aggregatePrometheus.ingress.authSecretHTTP }}
           failureThreshold: 120
           periodSeconds: 5
           successThreshold: 1
@@ -70,6 +77,9 @@ spec:
         volumeMounts:
         - mountPath: /etc/prometheus/config
           name: config
+          readOnly: true
+        - mountPath: /etc/prometheus/tls
+          name: tls
           readOnly: true
         - mountPath: /var/prometheus/data
           name: prometheus-db
@@ -81,7 +91,7 @@ spec:
         image: {{ index .Values.global.images "configmap-reloader" }}
         imagePullPolicy: IfNotPresent
         args:
-        - --reload-url=http://localhost:{{ .Values.aggregatePrometheus.port }}/-/reload
+        - --reload-url=https://{{ b64dec (required ".Values.aggregatePrometheus.ingress.authSecretHTTP is required" .Values.aggregatePrometheus.ingress.authSecretHTTP) }}@localhost:{{ .Values.aggregatePrometheus.port }}/-/reload
         - --watched-dir=/etc/prometheus/config
         - --watched-dir=/etc/prometheus/rules
         resources:
@@ -99,6 +109,9 @@ spec:
         configMap:
           defaultMode: 420
           name: aggregate-prometheus-config
+      - name: tls
+        secret:
+          secretName: {{ required ".Values.aggregatePrometheus.ingress.tlsSecretName is required" .Values.aggregatePrometheus.ingress.tlsSecretName }}
       - name: rules
         configMap:
           defaultMode: 420
