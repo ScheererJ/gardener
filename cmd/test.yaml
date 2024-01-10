@@ -1,0 +1,6 @@
+apiVersion: testmachinery.sapcloud.io
+kind: TestDefinition
+metadata:
+  name: test
+spec:
+  image: golang:1.20.5
