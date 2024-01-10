@@ -6,6 +6,10 @@ updates:
   schedule:
     interval: daily
 - package-ecosystem: docker
+  directory: /cmd
+  schedule:
+    interval: daily
+- package-ecosystem: docker
   directory: /.test-defs
   schedule:
     interval: daily
@@ -13,5 +17,3 @@ updates:
   directory: /hack/tools/image
   schedule:
     interval: daily
-    time: "11:00"
-    timezone: "Europe/Berlin"
