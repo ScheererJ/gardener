@@ -3,4 +3,4 @@ kind: TestDefinition
 metadata:
   name: test
 spec:
-  image: golang:1.20.5
+  image: golang:1.21.6
