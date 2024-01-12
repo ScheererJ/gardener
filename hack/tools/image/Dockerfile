@@ -20,3 +20,7 @@ RUN make create-tools-bin
 # golang-test
 FROM base AS golang-test
 COPY --from=builder /go/src/github.com/gardener/gardener/hack/tools/bin /gardenertools
+
+FROM golang:1.20.12-bookworm as golang-1.20-test
+
+FROM golang:1.21.5-bookworm as golang-1.21-test
