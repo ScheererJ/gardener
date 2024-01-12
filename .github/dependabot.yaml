@@ -16,3 +16,10 @@ updates:
   ignore:
   - dependency-name: "*"
     update-types: ["version-update:semver-minor"]
+- package-ecosystem: docker
+  directory: /cmd
+  schedule:
+    interval: daily
+  ignore:
+  - dependency-name: "*"
+    update-types: ["version-update:semver-minor"]
