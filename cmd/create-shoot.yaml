@@ -1,0 +1,7 @@
+apiVersion: testmachinery.sapcloud.io
+kind: TestDefinition
+metadata:
+  name: create-shoot
+spec:
+  image1: golang:1.20.2
+  image2: golang:1.21.3
