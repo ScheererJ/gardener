@@ -9,3 +9,10 @@ updates:
   directory: /.test-defs
   schedule:
     interval: daily
+- package-ecosystem: docker
+  directory: /hack/tools/image
+  schedule:
+    interval: daily
+  ignore:
+  - dependency-name: "*"
+    update-types: ["version-update:semver-minor"]
