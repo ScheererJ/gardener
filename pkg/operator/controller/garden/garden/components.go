@@ -250,7 +250,7 @@ func (r *Reconciler) instantiateComponents(
 	if err != nil {
 		return
 	}
-	c.plutono, err = r.newPlutono(secretsManager, *garden.Spec.RuntimeCluster.Ingress.Domain, wildcardCert)
+	c.plutono, err = r.newPlutono(garden, secretsManager, wildcardCert)
 	if err != nil {
 		return
 	}
@@ -788,6 +788,15 @@ func (r *Reconciler) newNginxIngressController(garden *operatorv1alpha1.Garden, 
 		return nil, fmt.Errorf("exactly one Istio Ingress Gateway is required for the SNI config")
 	}
 
+	var wildcardDomains []string
+	if domains := garden.Spec.RuntimeCluster.Ingress.Domains; len(domains) > 0 {
+		for _, domain := range garden.Spec.RuntimeCluster.Ingress.Domains {
+			wildcardDomains = append(wildcardDomains, "*."+domain)
+		}
+	} else {
+		wildcardDomains = []string{"*." + *garden.Spec.RuntimeCluster.Ingress.Domain}
+	}
+
 	return sharedcomponent.NewNginxIngress(
 		r.RuntimeClientSet.Client(),
 		r.GardenNamespace,
@@ -802,7 +811,7 @@ func (r *Reconciler) newNginxIngressController(garden *operatorv1alpha1.Garden, 
 		component.ClusterTypeSeed,
 		"",
 		v1beta1constants.SeedNginxIngressClass,
-		"*."+*garden.Spec.RuntimeCluster.Ingress.Domain,
+		wildcardDomains,
 		ingressGatewayValues[0].Labels,
 	)
 }
@@ -816,10 +825,17 @@ func (r *Reconciler) newGardenerMetricsExporter(secretsManager secretsmanager.In
 	return gardenermetricsexporter.New(r.RuntimeClientSet.Client(), r.GardenNamespace, secretsManager, gardenermetricsexporter.Values{Image: image.String()}), nil
 }
 
-func (r *Reconciler) newPlutono(secretsManager secretsmanager.Interface, ingressDomain string, wildcardCert *corev1.Secret) (plutono.Interface, error) {
+func (r *Reconciler) newPlutono(garden *operatorv1alpha1.Garden, secretsManager secretsmanager.Interface, wildcardCert *corev1.Secret) (plutono.Interface, error) {
 	var wildcardCertName *string
 	if wildcardCert != nil {
 		wildcardCertName = pointer.String(wildcardCert.GetName())
+	}
+
+	var accessDomain string
+	if domains := garden.Spec.RuntimeCluster.Ingress.Domains; len(domains) > 0 {
+		accessDomain = domains[0]
+	} else {
+		accessDomain = *garden.Spec.RuntimeCluster.Ingress.Domain
 	}
 
 	return sharedcomponent.NewPlutono(
@@ -829,7 +845,7 @@ func (r *Reconciler) newPlutono(secretsManager secretsmanager.Interface, ingress
 		component.ClusterTypeSeed,
 		1,
 		"",
-		fmt.Sprintf("%s.%s", "plutono-garden", ingressDomain),
+		fmt.Sprintf("%s.%s", "plutono-garden", accessDomain),
 		v1beta1constants.PriorityClassNameGardenSystem100,
 		false,
 		false,
