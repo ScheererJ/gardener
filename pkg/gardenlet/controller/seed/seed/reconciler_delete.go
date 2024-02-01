@@ -176,7 +176,7 @@ func (r *Reconciler) runDeleteSeedFlow(
 		dnsRecord                = getManagedIngressDNSRecord(log, seedClient, r.GardenNamespace, seed.GetInfo().Spec.DNS, secretData, seed.GetIngressFQDN("*"), "")
 		clusterAutoscaler        = clusterautoscaler.NewBootstrapper(seedClient, r.GardenNamespace)
 		machineControllerManager = machinecontrollermanager.NewBootstrapper(seedClient, r.GardenNamespace)
-		kubeAPIServerIngress     = kubeapiserverexposure.NewIngress(seedClient, r.GardenNamespace, kubeapiserverexposure.IngressValues{})
+		kubeAPIServerIngress     = kubeapiserverexposure.NewIngress(seedClient, r.GardenNamespace, kubeapiserverexposure.IngressValues{ServiceNamespace: metav1.NamespaceDefault})
 		kubeAPIServerService     = kubeapiserverexposure.NewInternalNameService(seedClient, r.GardenNamespace)
 		nginxIngress             = nginxingress.New(seedClient, r.GardenNamespace, nginxingress.Values{ClusterType: component.ClusterTypeSeed})
 		dwdWeeder                = dependencywatchdog.NewBootstrapper(seedClient, r.GardenNamespace, dependencywatchdog.BootstrapperValues{Role: dependencywatchdog.RoleWeeder})

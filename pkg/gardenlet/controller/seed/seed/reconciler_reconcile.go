@@ -632,10 +632,12 @@ func (r *Reconciler) runReconcileSeedFlow(
 	kubeAPIServerService := kubeapiserverexposure.NewInternalNameService(seedClient, r.GardenNamespace)
 	if wildcardCert != nil {
 		kubeAPIServerIngress := kubeapiserverexposure.NewIngress(seedClient, r.GardenNamespace, kubeapiserverexposure.IngressValues{
-			Host:             seed.GetIngressFQDN("api-seed"),
-			IngressClassName: pointer.String(v1beta1constants.SeedNginxIngressClass),
-			ServiceName:      v1beta1constants.DeploymentNameKubeAPIServer,
-			TLSSecretName:    &wildcardCert.Name,
+			Host:                         seed.GetIngressFQDN("api-seed"),
+			IstioIngressGatewayLabels:    istioDefaultLabels,
+			IstioIngressGatewayNamespace: istioDefaultNamespace,
+			ServiceName:                  "kubernetes",
+			ServiceNamespace:             metav1.NamespaceDefault,
+			TLSSecretName:                &wildcardCert.Name,
 		})
 		var (
 			_ = g.Add(flow.Task{
@@ -648,7 +650,7 @@ func (r *Reconciler) runReconcileSeedFlow(
 			})
 		)
 	} else {
-		kubeAPIServerIngress := kubeapiserverexposure.NewIngress(seedClient, r.GardenNamespace, kubeapiserverexposure.IngressValues{})
+		kubeAPIServerIngress := kubeapiserverexposure.NewIngress(seedClient, r.GardenNamespace, kubeapiserverexposure.IngressValues{ServiceNamespace: metav1.NamespaceDefault})
 		var (
 			_ = g.Add(flow.Task{
 				Name: "Destroying kube-apiserver service",
