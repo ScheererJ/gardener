@@ -600,13 +600,9 @@ func (k *kubeAPIServer) handleVPNSettingsHA(
 	secretHAVPNSeedClient *corev1.Secret,
 	secretHAVPNSeedClientSeedTLSAuth *corev1.Secret,
 ) {
-	for i := 0; i < k.values.VPN.HighAvailabilityNumberOfSeedServers; i++ {
-		serviceName := fmt.Sprintf("%s-%d", vpnseedserver.ServiceName, i)
-
-		deployment.Spec.Template.Labels = utils.MergeStringMaps(deployment.Spec.Template.Labels, map[string]string{
-			gardenerutils.NetworkPolicyLabel(serviceName, vpnseedserver.OpenVPNPort): v1beta1constants.LabelNetworkPolicyAllowed,
-		})
-	}
+	deployment.Spec.Template.Labels = utils.MergeStringMaps(deployment.Spec.Template.Labels, map[string]string{
+		gardenerutils.NetworkPolicyLabel(vpnseedserver.ServiceName, vpnseedserver.OpenVPNPort): v1beta1constants.LabelNetworkPolicyAllowed,
+	})
 
 	deployment.Spec.Template.Spec.ServiceAccountName = serviceAccount.Name
 	deployment.Spec.Template.Labels[v1beta1constants.LabelNetworkPolicyToShootNetworks] = v1beta1constants.LabelNetworkPolicyAllowed
@@ -757,7 +753,7 @@ func (k *kubeAPIServer) vpnSeedClientContainer(index int) *corev1.Container {
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ENDPOINT",
-				Value: fmt.Sprintf("vpn-seed-server-%d", index),
+				Value: fmt.Sprintf("vpn-seed-server-%d.vpn-seed-server", index),
 			},
 			{
 				Name:  "SERVICE_NETWORK",

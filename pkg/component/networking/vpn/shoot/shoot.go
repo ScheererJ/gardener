@@ -532,7 +532,7 @@ func (v *vpnShoot) indexedReversedHeader(index *int) string {
 	if index == nil {
 		return v.values.ReversedVPN.Header
 	}
-	return strings.Replace(v.values.ReversedVPN.Header, "vpn-seed-server", fmt.Sprintf("vpn-seed-server-%d", *index), 1)
+	return strings.Replace(v.values.ReversedVPN.Header, "vpn-seed-server", fmt.Sprintf("vpn-seed-server-%d.vpn-seed-server", *index), 1)
 }
 
 func (v *vpnShoot) getEnvVars(index *int) []corev1.EnvVar {

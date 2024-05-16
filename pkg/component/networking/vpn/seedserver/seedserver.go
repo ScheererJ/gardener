@@ -208,27 +208,29 @@ func (v *vpnSeedServer) Deploy(ctx context.Context) error {
 		if err := v.deployStatefulSet(ctx, labels, podTemplate); err != nil {
 			return err
 		}
+		if err := v.deployService(ctx); err != nil {
+			return err
+		}
 
+		objects := []client.Object{}
 		for i := 0; i < int(v.values.Replicas); i++ {
-			if err := v.deployService(ctx, &i); err != nil {
-				return err
-			}
+			objects = append(objects, v.emptyService(&i))
 			if err := v.deployDestinationRule(ctx, &i); err != nil {
 				return err
 			}
+			if err := v.deployServiceEntry(ctx, &i); err != nil {
+				return err
+			}
 		}
-		if err := kubernetesutils.DeleteObjects(ctx, v.client,
-			v.emptyDeployment(),
-			v.emptyService(nil),
-			v.emptyDestinationRule(nil),
-		); err != nil {
+		objects = append(objects, v.emptyDeployment(), v.emptyDestinationRule(nil))
+		if err := kubernetesutils.DeleteObjects(ctx, v.client, objects...); err != nil {
 			return err
 		}
 	} else {
 		if err := v.deployDeployment(ctx, labels, podTemplate); err != nil {
 			return err
 		}
-		if err := v.deployService(ctx, nil); err != nil {
+		if err := v.deployService(ctx); err != nil {
 			return err
 		}
 		if err := v.deployDestinationRule(ctx, nil); err != nil {
@@ -237,7 +239,7 @@ func (v *vpnSeedServer) Deploy(ctx context.Context) error {
 
 		objects := []client.Object{v.emptyStatefulSet()}
 		for i := 0; i < v.values.HighAvailabilityNumberOfSeedServers; i++ {
-			objects = append(objects, v.emptyService(&i), v.emptyDestinationRule(&i))
+			objects = append(objects, v.emptyService(&i), v.emptyDestinationRule(&i), v.emptyServiceEntry(&i))
 		}
 		if err := kubernetesutils.DeleteObjects(ctx, v.client, objects...); err != nil {
 			return err
@@ -588,6 +590,7 @@ func (v *vpnSeedServer) deployStatefulSet(ctx context.Context, labels map[string
 			Replicas:             ptr.To(v.values.Replicas),
 			RevisionHistoryLimit: ptr.To[int32](1),
 			Selector:             &metav1.LabelSelector{MatchLabels: podLabels},
+			ServiceName:          DeploymentName,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			},
@@ -647,8 +650,8 @@ func (v *vpnSeedServer) deployDeployment(ctx context.Context, labels map[string]
 	return err
 }
 
-func (v *vpnSeedServer) deployService(ctx context.Context, idx *int) error {
-	service := v.emptyService(idx)
+func (v *vpnSeedServer) deployService(ctx context.Context) error {
+	service := v.emptyService(nil)
 
 	_, err := controllerutils.GetAndCreateOrMergePatch(ctx, v.client, service, func() error {
 		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "networking.istio.io/exportTo", "*")
@@ -677,15 +680,12 @@ func (v *vpnSeedServer) deployService(ctx context.Context, idx *int) error {
 				TargetPort: intstr.FromInt32(MetricsPort),
 			},
 		}
+		service.Spec.Selector = map[string]string{
+			v1beta1constants.LabelApp: DeploymentName,
+		}
 
-		if idx == nil {
-			service.Spec.Selector = map[string]string{
-				v1beta1constants.LabelApp: DeploymentName,
-			}
-		} else {
-			service.Spec.Selector = map[string]string{
-				"statefulset.kubernetes.io/pod-name": v.indexedName(idx),
-			}
+		if v.values.HighAvailabilityEnabled {
+			service.Spec.ClusterIP = corev1.ClusterIPNone
 		}
 
 		return nil
@@ -698,7 +698,7 @@ func (v *vpnSeedServer) deployDestinationRule(ctx context.Context, idx *int) err
 	_, err := controllerutils.GetAndCreateOrMergePatch(ctx, v.client, destinationRule, func() error {
 		destinationRule.Spec = istionetworkingv1beta1.DestinationRule{
 			ExportTo: []string{"*"},
-			Host:     fmt.Sprintf("%s.%s.svc.cluster.local", v.indexedName(idx), v.namespace),
+			Host:     fmt.Sprintf("%s.%s.%s.svc.cluster.local", v.indexedName(idx), DeploymentName, v.namespace),
 			TrafficPolicy: &istionetworkingv1beta1.TrafficPolicy{
 				ConnectionPool: &istionetworkingv1beta1.ConnectionPoolSettings{
 					Tcp: &istionetworkingv1beta1.ConnectionPoolSettings_TCPSettings{
@@ -727,6 +727,24 @@ func (v *vpnSeedServer) deployDestinationRule(ctx context.Context, idx *int) err
 					Mode: istionetworkingv1beta1.ClientTLSSettings_DISABLE,
 				},
 			},
+		}
+		return nil
+	})
+	return err
+}
+
+func (v *vpnSeedServer) deployServiceEntry(ctx context.Context, idx *int) error {
+	serviceEntry := v.emptyServiceEntry(idx)
+	_, err := controllerutils.GetAndCreateOrMergePatch(ctx, v.client, serviceEntry, func() error {
+		serviceEntry.Spec = istionetworkingv1beta1.ServiceEntry{
+			ExportTo: []string{"*"},
+			Hosts:    []string{fmt.Sprintf("%s.%s.%s.svc.cluster.local", v.indexedName(idx), DeploymentName, v.namespace)},
+			Ports: []*istionetworkingv1beta1.ServicePort{{
+				Name:     DeploymentName,
+				Number:   OpenVPNPort,
+				Protocol: "TCP",
+			}},
+			Resolution: istionetworkingv1beta1.ServiceEntry_DNS,
 		}
 		return nil
 	})
@@ -782,7 +800,7 @@ func (v *vpnSeedServer) Destroy(ctx context.Context) error {
 		v.emptyPodDisruptionBudget(),
 	}
 	for i := 0; i < v.values.HighAvailabilityNumberOfSeedServers; i++ {
-		objects = append(objects, v.emptyDestinationRule(&i), v.emptyService(&i))
+		objects = append(objects, v.emptyDestinationRule(&i), v.emptyService(&i), v.emptyServiceEntry(&i))
 	}
 	return kubernetesutils.DeleteObjects(ctx, v.client, objects...)
 }
@@ -823,6 +841,10 @@ func (v *vpnSeedServer) emptyPodDisruptionBudget() *policyv1.PodDisruptionBudget
 
 func (v *vpnSeedServer) emptyDestinationRule(idx *int) *networkingv1beta1.DestinationRule {
 	return &networkingv1beta1.DestinationRule{ObjectMeta: metav1.ObjectMeta{Name: v.indexedName(idx), Namespace: v.namespace}}
+}
+
+func (v *vpnSeedServer) emptyServiceEntry(idx *int) *networkingv1beta1.ServiceEntry {
+	return &networkingv1beta1.ServiceEntry{ObjectMeta: metav1.ObjectMeta{Name: v.indexedName(idx), Namespace: v.namespace}}
 }
 
 func (v *vpnSeedServer) emptyVPA() *vpaautoscalingv1.VerticalPodAutoscaler {
