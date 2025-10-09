@@ -524,8 +524,10 @@ Below is a sequence describing how the tests are performed.
 - Create a `kind` cluster.
 - Install Gardener version `vX.X.X`.
 - Run gardener pre-upgrade tests which are labeled with `pre-upgrade`.
-- Upgrade Gardener version from `vX.X.X` to `vY.Y.Y`.
-- Run gardener post-upgrade tests which are labeled with `post-upgrade`
+- Upgrade Gardener version from `vX.X.X` to `vY.Y.Y` without upgrading the extensions.
+- Run gardener post-gardener-upgrade tests which are labeled with `post-gardener-upgrade`
+- Upgrade Gardener version from `vX.X.X` to `vY.Y.Y` including extensions.
+- Run gardener post-extension-upgrade tests which are labeled with `post-extension-upgrade`
 - Tear down seed and kind cluster.
 
 ### How to Run Upgrade Tests Between Two Gardener Releases
@@ -549,10 +551,11 @@ This can performed by fetching the two Gardener versions from the  **[GitHub Gar
 
 ### Writing Upgrade Tests
 
-- Tests are divided into two parts and labeled with `pre-upgrade` and `post-upgrade` labels.
+- Tests are divided into three parts and labeled with `pre-upgrade`, `post-gardener-upgrade` and `post-extension-upgrade` labels.
 - An example test case which ensures a shoot which was `hibernated` in a previous Gardener release should `wakeup` as expected in next release:
   - Creating a shoot and hibernating a shoot is pre-upgrade test case which should be labeled `pre-upgrade` label.
-  - Then wakeup a shoot and delete a shoot is post-upgrade test case which should be labeled `post-upgrade` label.
+  - Then wakeup a shoot and hibernating it again is post-gardener-upgrade test case which should be labeled `post-gardener-upgrade` label.
+  - Finally, wakeup a shoot and deleting a shoot is post-extension-upgrade test case which should be labeled `post-extension-upgrade` label.
 
 ## Test Machinery Tests
 

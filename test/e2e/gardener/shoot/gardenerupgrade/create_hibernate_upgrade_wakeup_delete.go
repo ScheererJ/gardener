@@ -22,9 +22,20 @@ var _ = Describe("Gardener Upgrade Tests", func() {
 				ItShouldWaitForShootToBeReconciledAndHealthy(s)
 			})
 
-			Describe("Post-Upgrade"+gardenerInfoPostUpgrade, Label("post-upgrade"), func() {
+			Describe("Post-Gardener-Upgrade"+gardenerInfoPostUpgrade, Label("post-gardener-upgrade"), func() {
 				// This tests that we can wake-up a Shoot which was hibernated with the previous Gardener version.
 				itShouldEnsureShootWasReconciledWithPreviousGardenerVersion(s)
+				ItShouldWakeUpShoot(s)
+				ItShouldWaitForShootToBeReconciledAndHealthy(s)
+				itShouldEnsureShootWasReconciledWithCurrentGardenerVersion(s)
+
+				ItShouldHibernateShoot(s)
+				ItShouldWaitForShootToBeReconciledAndHealthy(s)
+			})
+
+			Describe("Post-Extension-Upgrade"+gardenerInfoPostUpgrade, Label("post-extension-upgrade"), func() {
+				// This tests that we can wake-up a Shoot which was hibernated with the previous extension version.
+				itShouldEnsureShootWasReconciledWithCurrentGardenerVersion(s)
 				ItShouldWakeUpShoot(s)
 				ItShouldWaitForShootToBeReconciledAndHealthy(s)
 				itShouldEnsureShootWasReconciledWithCurrentGardenerVersion(s)

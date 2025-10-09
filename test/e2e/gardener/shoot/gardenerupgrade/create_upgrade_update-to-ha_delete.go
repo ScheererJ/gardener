@@ -23,7 +23,7 @@ var _ = Describe("Gardener Upgrade Tests", func() {
 				ItShouldWaitForShootToBeReconciledAndHealthy(s)
 			})
 
-			Describe("Post-Upgrade"+gardenerInfoPostUpgrade, Label("post-upgrade"), func() {
+			Describe("Post-Extension-Upgrade"+gardenerInfoPostUpgrade, Label("post-extension-upgrade"), func() {
 				itShouldEnsureShootWasReconciledWithPreviousGardenerVersion(s)
 
 				ItShouldGetResponsibleSeed(s)

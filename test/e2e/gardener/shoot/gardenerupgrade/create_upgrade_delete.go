@@ -30,7 +30,17 @@ var _ = Describe("Gardener Upgrade Tests", func() {
 				zeroDowntimeValidatorJob.ItShouldWaitForJobToBeReady(s)
 			})
 
-			Describe("Post-Upgrade"+gardenerInfoPostUpgrade, Label("post-upgrade"), func() {
+			Describe("Post-Gardener-Upgrade"+gardenerInfoPostUpgrade, Label("post-gardener-upgrade"), func() {
+				ItShouldGetResponsibleSeed(s)
+				seed.ItShouldInitializeSeedClient(&s.SeedContext)
+
+				zeroDowntimeValidatorJob.ItShouldEnsureThereWasNoDowntime(s)
+
+				// This tests that we can delete a Shoot which was not yet reconciled with the current Gardener version.
+				itShouldEnsureShootWasReconciledWithPreviousGardenerVersion(s)
+			})
+
+			Describe("Post-Extension-Upgrade"+gardenerInfoPostUpgrade, Label("post-extension-upgrade"), func() {
 				ItShouldGetResponsibleSeed(s)
 				seed.ItShouldInitializeSeedClient(&s.SeedContext)
 

@@ -43,7 +43,19 @@ function gardener_up() {
     make operator-seed-up
     ;;
   *)
+    # If GARDENER_IGNORE_EXTENSIONS is set, only update the core Gardener components without any extensions.
+    if [[ ! -z ${GARDENER_IGNORE_EXTENSIONS:-} ]]; then
+      echo "make gardener-up (ignoring extensions)..."
+      export SKAFFOLD_MODULE=etcd,controlplane,kind2-env,extensions-env,gardenlet
+    else
+      echo "make gardener-up (with extensions)..."
+    fi
+
     make gardener-up
+
+    if [[ ! -z ${GARDENER_IGNORE_EXTENSIONS:-} ]]; then
+      unset SKAFFOLD_MODULE
+    fi
     ;;
   esac
 }
@@ -200,16 +212,43 @@ function run_pre_upgrade_test() {
   make "$test_command" GARDENER_PREVIOUS_RELEASE="$GARDENER_PREVIOUS_RELEASE" GARDENER_NEXT_RELEASE="$GARDENER_NEXT_RELEASE"
 }
 
-function run_post_upgrade_test() {
+function run_post_gardener_upgrade_test() {
   local test_command
 
   if [[ "$SHOOT_FAILURE_TOLERANCE_TYPE" == "node" || "$SHOOT_FAILURE_TOLERANCE_TYPE" == "zone" ]]; then
-    test_command="test-post-upgrade"
+    test_command="test-post-gardener-upgrade"
   else
-    test_command="test-non-ha-post-upgrade"
+    test_command="test-non-ha-post-gardener-upgrade"
   fi
 
   make "$test_command" GARDENER_PREVIOUS_RELEASE="$GARDENER_PREVIOUS_RELEASE" GARDENER_NEXT_RELEASE="$GARDENER_NEXT_RELEASE"
+}
+
+function run_post_extension_upgrade_test() {
+  local test_command
+
+  if [[ "$SHOOT_FAILURE_TOLERANCE_TYPE" == "node" || "$SHOOT_FAILURE_TOLERANCE_TYPE" == "zone" ]]; then
+    test_command="test-post-extension-upgrade"
+  else
+    test_command="test-non-ha-post-extension-upgrade"
+  fi
+
+  make "$test_command" GARDENER_PREVIOUS_RELEASE="$GARDENER_PREVIOUS_RELEASE" GARDENER_NEXT_RELEASE="$GARDENER_NEXT_RELEASE"
+}
+
+function wait_for_gardener_upgrade_completion() {
+  echo "Wait until seed '$SEED_NAME' gets upgraded from version '$GARDENER_PREVIOUS_RELEASE' to '$GARDENER_NEXT_RELEASE'"
+  kubectl wait seed $SEED_NAME --timeout=5m --for=jsonpath="{.status.gardener.version}=$GARDENER_NEXT_RELEASE"
+  # TIMEOUT has been increased to 1200 (20 minutes) due to the upgrading of Gardener for seed.
+  # In a single-zone setup, 2 istio-ingressgateway pods will be running, and it will take 9 minutes to complete the rollout.
+  # In a multi-zone setup, 6 istio-ingressgateway pods will be running, and it will take 18 minutes to complete the rollout.
+  TIMEOUT=1200 ./hack/usage/wait-for.sh seed "$SEED_NAME" GardenletReady SeedSystemComponentsHealthy ExtensionsReady BackupBucketsReady
+
+  # The downtime validator considers downtime after 3 consecutive failures, taking a total of 30 seconds.
+  # Therefore, we're waiting for double that amount of time (60s) to detect if there is any downtime after the upgrade process.
+  # By waiting for double the amount of time (60 seconds) post-upgrade, the script accounts for the possibility of missing the last 30-second window,
+  # thus ensuring that any potential downtime after the post-upgrade is detected.
+  sleep 60
 }
 
 # TODO(rfranzke): Remove this after v1.122 has been released.
@@ -246,23 +285,22 @@ install_previous_release
 echo "Running gardener pre-upgrade tests"
 run_pre_upgrade_test
 
-echo "Upgrading gardener version '$GARDENER_PREVIOUS_RELEASE' to '$GARDENER_NEXT_RELEASE'"
+echo "Upgrading gardener version '$GARDENER_PREVIOUS_RELEASE' to '$GARDENER_NEXT_RELEASE' without upgrading extensions"
+export GARDENER_IGNORE_EXTENSIONS=true
+upgrade_to_next_release
+unset GARDENER_IGNORE_EXTENSIONS
+
+wait_for_gardener_upgrade_completion
+
+echo "Running gardener post-gardener-upgrade tests"
+run_post_gardener_upgrade_test
+
+echo "Upgrading gardener version '$GARDENER_PREVIOUS_RELEASE' to '$GARDENER_NEXT_RELEASE' including extensions"
 upgrade_to_next_release
 
-echo "Wait until seed '$SEED_NAME' gets upgraded from version '$GARDENER_PREVIOUS_RELEASE' to '$GARDENER_NEXT_RELEASE'"
-kubectl wait seed $SEED_NAME --timeout=5m --for=jsonpath="{.status.gardener.version}=$GARDENER_NEXT_RELEASE"
-# TIMEOUT has been increased to 1200 (20 minutes) due to the upgrading of Gardener for seed.
-# In a single-zone setup, 2 istio-ingressgateway pods will be running, and it will take 9 minutes to complete the rollout.
-# In a multi-zone setup, 6 istio-ingressgateway pods will be running, and it will take 18 minutes to complete the rollout.
-TIMEOUT=1200 ./hack/usage/wait-for.sh seed "$SEED_NAME" GardenletReady SeedSystemComponentsHealthy ExtensionsReady BackupBucketsReady
+wait_for_gardener_upgrade_completion
 
-# The downtime validator considers downtime after 3 consecutive failures, taking a total of 30 seconds.
-# Therefore, we're waiting for double that amount of time (60s) to detect if there is any downtime after the upgrade process.
-# By waiting for double the amount of time (60 seconds) post-upgrade, the script accounts for the possibility of missing the last 30-second window,
-# thus ensuring that any potential downtime after the post-upgrade is detected.
-sleep 60
-
-echo "Running gardener post-upgrade tests"
-run_post_upgrade_test
+echo "Running gardener post-extension-upgrade tests"
+run_post_extension_upgrade_test
 
 gardener_down

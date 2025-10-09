@@ -15,8 +15,17 @@ VALID_COMMANDS=("up" "dev" "debug" "down")
 
 case "$COMMAND" in
   up)
+    # If GARDENER_IGNORE_EXTENSIONS is set, only update the core Gardener components without any extensions.
+    if [[ ! -z ${GARDENER_IGNORE_EXTENSIONS:-} ]]; then
+      export SKAFFOLD_MODULE=gardener-operator
+    fi
+
     skaffold run \
       --cache-artifacts="$($(dirname "$0")/get-skaffold-cache-artifacts.sh)"
+
+    if [[ ! -z ${GARDENER_IGNORE_EXTENSIONS:-} ]]; then
+      unset SKAFFOLD_MODULE
+    fi
    ;;
 
   dev)
