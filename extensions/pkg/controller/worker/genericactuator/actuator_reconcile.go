@@ -27,6 +27,7 @@ import (
 	extensionsworkerhelper "github.com/gardener/gardener/extensions/pkg/controller/worker/helper"
 	v1beta1helper "github.com/gardener/gardener/pkg/api/core/v1beta1/helper"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/api/extensions/v1alpha1/helper"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	nodeagentconfigv1alpha1 "github.com/gardener/gardener/pkg/apis/config/nodeagent/v1alpha1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -221,6 +222,7 @@ func deployMachineDeployments(
 		taskFns          = make([]flow.TaskFn, 0, len(wantedMachineDeployments))
 		controlPlanePool = v1beta1helper.ControlPlaneWorkerPoolForShoot(cluster.Shoot.Spec.Provider.Workers)
 	)
+
 	for _, deployment := range wantedMachineDeployments {
 		var (
 			existingMachineDeployment     = getExistingMachineDeployment(existingMachineDeployments, deployment.Name)
@@ -229,7 +231,7 @@ func deployMachineDeployments(
 		)
 
 		taskFns = append(taskFns, func(ctx context.Context) error {
-			return deployMachineDeployment(ctx, log, cl, worker, deployment, existingMachineDeployment, clusterAutoscalerUsed, isHibernated, shootIsAwake, deploymentForControlPlanePool)
+			return deployMachineDeployment(ctx, log, cl, worker, cluster.Shoot, deployment, existingMachineDeployment, clusterAutoscalerUsed, isHibernated, shootIsAwake, deploymentForControlPlanePool)
 		})
 	}
 
@@ -241,6 +243,7 @@ func deployMachineDeployment(
 	log logr.Logger,
 	cl client.Client,
 	worker *extensionsv1alpha1.Worker,
+	shoot *gardencorev1beta1.Shoot,
 	deployment extensionsworkercontroller.MachineDeployment,
 	existingMachineDeployment *machinev1alpha1.MachineDeployment,
 	clusterAutoscalerUsed bool,
@@ -339,6 +342,7 @@ func deployMachineDeployment(
 		}
 
 		if deploymentForControlPlanePool {
+			metav1.SetMetaDataAnnotation(&machineDeployment.Spec.Template.ObjectMeta, gardenerutils.AnnotationKeySuspendInstanceDeletion, gardenerutils.AnnotationValueSuspendInstanceDeletion)
 			if machineDeployment.Spec.Template.Spec.MachineConfiguration == nil {
 				machineDeployment.Spec.Template.Spec.MachineConfiguration = &machinev1alpha1.MachineConfiguration{}
 			}
