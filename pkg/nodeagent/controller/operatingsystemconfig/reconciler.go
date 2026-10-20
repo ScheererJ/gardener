@@ -209,11 +209,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		}
 
 		nodeList := &corev1.NodeList{}
+<<<<<<< HEAD
 
 		if node != nil {
 			if err := r.Client.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: node.Labels[v1beta1constants.LabelWorkerPool]}); err != nil {
 				return reconcile.Result{}, fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
 			}
+=======
+		if err := r.Client.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: node.Labels[v1beta1constants.LabelWorkerPool]}); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
+>>>>>>> 9972a95669 ( Enable serial reconciliation logic for the control plane worker pool and acquiring the Lease is no attempted when other nodes report CriticalControlPlanePodsUnhealthy=True)
 		}
 
 		for _, n := range nodeList.Items {
