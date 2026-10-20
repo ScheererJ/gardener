@@ -206,6 +206,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 			serialReconciliationLease.logger().Info("Lease was acquired by another instance, but it was not renewed in time")
 		}
 
+		nodeList := &corev1.NodeList{}
+		if err := r.Client.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: node.Labels[v1beta1constants.LabelWorkerPool]}); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
+		}
+
+		for _, n := range nodeList.Items {
+			if n.Name == node.Name {
+				continue
+			}
+
+			for _, condition := range n.Status.Conditions {
+				if condition.Type != nodeagentconfigv1alpha1.ConditionTypeCriticalControlPlanePodsUnhealthy {
+					continue
+				}
+
+				if condition.Status == corev1.ConditionTrue {
+					requeueAfter := 5 * time.Second
+					serialReconciliationLease.logger().Info("Another node has unhealthy critical pods, exiting early and requeue when pods are healthy again", "unhealthyNode", n.Name, "requeueAfter", requeueAfter)
+					return reconcile.Result{RequeueAfter: requeueAfter}, nil
+				}
+			}
+		}
+
 		if err := serialReconciliationLease.tryAcquireOrRenew(ctx); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed acquiring or renewing lease: %w", err)
 		}

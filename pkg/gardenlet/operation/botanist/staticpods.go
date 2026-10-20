@@ -26,6 +26,7 @@ import (
 
 	"github.com/gardener/gardener/imagevector"
 	v1beta1helper "github.com/gardener/gardener/pkg/api/core/v1beta1/helper"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
@@ -269,7 +270,7 @@ func (b *Botanist) populateStaticAdminTokenToAccessTokenSecret(ctx context.Conte
 
 // DeployOperatingSystemConfigWithStaticPods deploys and waits for the OperatingSystemConfig containing the files for the control
 // plane components running as static pods.
-func (b *Botanist) DeployOperatingSystemConfigWithStaticPods(ctx context.Context, useBootstrapEtcd, useShootAccessTokens bool, bootstrapEtcdBackupPath string) (*operatingsystemconfig.Data, string, error) {
+func (b *Botanist) DeployOperatingSystemConfigWithStaticPods(ctx context.Context, useBootstrapEtcd, useShootAccessTokens bool, bootstrapEtcdBackupPath string) (*operatingsystemconfig.Data, *gardencorev1beta1.Worker, error) {
 	pods, err := b.staticControlPlanePods(ctx, useBootstrapEtcd, useShootAccessTokens, bootstrapEtcdBackupPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed computing files for static control plane pods: %w", err)
@@ -327,7 +328,7 @@ func (b *Botanist) DeployOperatingSystemConfigWithStaticPods(ctx context.Context
 		}
 	}
 
-	return &oscData.Original, controlPlaneWorkerPool.Name, nil
+	return &oscData.Original, controlPlaneWorkerPool, nil
 }
 
 func (b *Botanist) appendStaticAdminKubeconfigToFiles(files []extensionsv1alpha1.File) ([]extensionsv1alpha1.File, error) {
