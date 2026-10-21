@@ -207,8 +207,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		}
 
 		nodeList := &corev1.NodeList{}
-		if err := r.Client.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: node.Labels[v1beta1constants.LabelWorkerPool]}); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
+
+		if node != nil {
+			if err := r.Client.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: node.Labels[v1beta1constants.LabelWorkerPool]}); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
+			}
 		}
 
 		for _, n := range nodeList.Items {
