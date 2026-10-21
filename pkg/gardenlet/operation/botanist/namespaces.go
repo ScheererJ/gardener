@@ -116,6 +116,30 @@ func (b *Botanist) DeployControlPlaneNamespace(ctx context.Context) error {
 			// If zone pinning is disabled, only the number of zones available for system components is relevant to inject
 			// topology spread constraints accordingly. Consider the zones of all worker pools for this.
 			zones = v1beta1helper.ZonesWithSystemComponents(b.Shoot.GetInfo().Spec.Provider.Workers)
+
+			if failureToleranceTypeExisting && shootFailureToleranceType != nil && existingFailureToleranceType != string(*shootFailureToleranceType) && *shootFailureToleranceType == gardencorev1beta1.FailureToleranceTypeZone {
+				controlPlaneWorkerPool := v1beta1helper.ControlPlaneWorkerPoolForShoot(b.Shoot.GetInfo().Spec.Provider.Workers)
+				nodeList := &corev1.NodeList{}
+				if err := b.SeedClientSet.Client().List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPool: controlPlaneWorkerPool.Name}); err != nil {
+					return fmt.Errorf("failed to list nodes for serial reconciliation: %w", err)
+				}
+
+				availableZones := make(map[string]any)
+
+				for _, n := range nodeList.Items {
+
+					if zone, exists := n.Labels["topology.kubernetes.io/zone"]; exists {
+						availableZones[zone] = ""
+					}
+				}
+
+				if len(zones) >= len(availableZones) {
+					metav1.SetMetaDataAnnotation(&namespace.ObjectMeta, resourcesv1alpha1.HighAvailabilityConfigFailureToleranceType, string(*shootFailureToleranceType))
+				} else {
+					metav1.SetMetaDataAnnotation(&namespace.ObjectMeta, resourcesv1alpha1.HighAvailabilityConfigFailureToleranceType, existingFailureToleranceType)
+				}
+			}
+
 		} else if !b.Shoot.IsSelfHosted() {
 			// Enable zone pinning for hosted shoots for avoiding cross-AZ traffic in control planes without zone failure
 			// tolerance on seeds with multiple (more) zones.
