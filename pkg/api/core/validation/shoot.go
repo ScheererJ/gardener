@@ -3825,7 +3825,7 @@ func validateSelfHostedShootControlPlane(spec *core.ShootSpec, fldPath *field.Pa
 		allErrs = append(allErrs, field.Invalid(workerPath.Child("maxSurge"), controlPlaneWorker.MaxSurge, "control plane worker pool must have maxSurge=1 when high availability is configured"))
 	}
 
-	if controlPlaneWorker.MaxUnavailable == nil || controlPlaneWorker.MaxUnavailable.IntValue() != 1 {
+	if controlPlaneWorker.MaxUnavailable == nil || controlPlaneWorker.MaxUnavailable.IntValue() != 0 {
 		allErrs = append(allErrs, field.Invalid(workerPath.Child("maxUnavailable"), controlPlaneWorker.MaxUnavailable, "control plane worker pool must have maxUnavailable=1 when high availability is configured"))
 	}
 

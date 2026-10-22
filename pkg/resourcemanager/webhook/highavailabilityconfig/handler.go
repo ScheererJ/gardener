@@ -9,10 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -71,6 +74,24 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 	if v, ok := namespace.Annotations[resourcesv1alpha1.HighAvailabilityConfigZones]; ok {
 		zones = sets.List(sets.New(strings.Split(v, ",")...).Delete(""))
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := h.TargetClient.List(ctx, nodeList, client.MatchingLabels{v1beta1constants.LabelWorkerPoolSystemComponents: "true"}); err != nil {
+		return admission.Denied(err.Error())
+	}
+
+	availableZones := make(map[string]any)
+
+	for _, n := range nodeList.Items {
+
+		if zone, exists := n.Labels["topology.kubernetes.io/zone"]; exists {
+			availableZones[zone] = ""
+		}
+	}
+
+	if len(availableZones) < 2 {
+		zones = slices.Collect(maps.Keys(availableZones))
 	}
 
 	if v, err := strconv.ParseBool(namespace.Annotations[resourcesv1alpha1.HighAvailabilityConfigZonePinning]); err == nil {
