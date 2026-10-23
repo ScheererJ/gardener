@@ -3810,6 +3810,7 @@ func validateSelfHostedShootControlPlane(spec *core.ShootSpec, fldPath *field.Pa
 
 	controlPlaneWorkerIdx := slices.IndexFunc(spec.Provider.Workers, func(w core.Worker) bool { return w.ControlPlane != nil })
 	workerPath := fldPath.Child("provider", "workers").Index(controlPlaneWorkerIdx)
+	zones := max(1, len(spec.Provider.Workers[controlPlaneWorkerIdx].Zones))
 
 	if spec.ControlPlane == nil || spec.ControlPlane.HighAvailability == nil {
 		if controlPlaneWorker.Maximum != 1 {
@@ -3821,7 +3822,8 @@ func validateSelfHostedShootControlPlane(spec *core.ShootSpec, fldPath *field.Pa
 	if controlPlaneWorker.Minimum != 3 || controlPlaneWorker.Maximum != 3 {
 		allErrs = append(allErrs, field.Invalid(workerPath.Child("maximum"), controlPlaneWorker.Maximum, "control plane worker pool must have minimum=maximum=3 when high availability is configured"))
 	}
-	if controlPlaneWorker.MaxSurge == nil || controlPlaneWorker.MaxSurge.IntValue() != 1 {
+
+	if controlPlaneWorker.MaxSurge == nil || controlPlaneWorker.MaxSurge.IntValue() != zones {
 		allErrs = append(allErrs, field.Invalid(workerPath.Child("maxSurge"), controlPlaneWorker.MaxSurge, "control plane worker pool must have maxSurge=1 when high availability is configured"))
 	}
 
